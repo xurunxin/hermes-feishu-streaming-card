@@ -35,6 +35,9 @@ from hermes_feishu_card.install.recovery import (
 )
 
 
+pytestmark = pytest.mark.posix_only
+
+
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "hermes_v2026_4_23"
 CRON_FIXTURE = (
     Path(__file__).resolve().parents[1]

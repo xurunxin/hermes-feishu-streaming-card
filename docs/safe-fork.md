@@ -29,6 +29,21 @@ This fork is **manual-update only**. It does not download or install a newer Her
 
 The fork is not an upstream release and should not be treated as a security verdict for the original detection. Windows Security should still be reviewed after installation.
 
+## Test groups
+
+The pytest configuration registers two explicit platform markers:
+
+- `posix_only`: Unix `dirfd`, systemd, POSIX permission bits, and process/race semantics. Native Windows skips these tests; run them in a WSL/Linux checkout with `python -m pytest -m posix_only`.
+- `windows_only`: native Windows process behavior. WSL/Linux skips these tests; run them on Windows with `python -m pytest -m windows_only`.
+
+The default command runs the portable/common suite and reports platform skips explicitly:
+
+```text
+python -m pytest -q
+```
+
+Windows sidecar lifecycle coverage remains in `tests/integration/test_cli_process.py`; portable recovery/install coverage remains in the integration suites and is not replaced by the POSIX marker.
+
 ## Installation source
 
 Install from the local fork working tree with the Hermes runtime Python. Do not use the upstream remote installer command.

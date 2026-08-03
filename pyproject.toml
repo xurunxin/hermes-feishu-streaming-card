@@ -42,6 +42,10 @@ Issues = "https://github.com/xurunxin/hermes-feishu-streaming-card/issues"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+  "posix_only: tests requiring POSIX/Unix filesystem or process semantics; run them in WSL/Linux",
+  "windows_only: tests requiring native Windows behavior",
+]
 
 [tool.setuptools.packages.find]
 include = ["hermes_feishu_card*"]

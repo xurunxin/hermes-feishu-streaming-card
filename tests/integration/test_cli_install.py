@@ -145,6 +145,7 @@ def phase_one_placeholder(content):
     )
 
 
+@pytest.mark.posix_only
 def test_restore_transaction_rollback_preserves_concurrent_replacement_and_continues(
     tmp_path, monkeypatch
 ):
@@ -182,6 +183,7 @@ def test_restore_transaction_rollback_preserves_concurrent_replacement_and_conti
     assert failing.read_text(encoding="utf-8") == "failing-before\n"
 
 
+@pytest.mark.posix_only
 def test_atomic_write_temp_cleanup_stays_bound_to_staging_parent(
     tmp_path, monkeypatch
 ):
@@ -220,6 +222,7 @@ def test_atomic_write_temp_cleanup_stays_bound_to_staging_parent(
     assert (real_parent / "target.txt").read_text(encoding="utf-8") == "before\n"
 
 
+@pytest.mark.posix_only
 def test_restore_transaction_prebinds_parent_across_atomic_write_entry_gap(
     tmp_path, monkeypatch
 ):
@@ -250,6 +253,7 @@ def test_restore_transaction_prebinds_parent_across_atomic_write_entry_gap(
     assert (real_parent / target.name).read_text(encoding="utf-8") == "before\n"
 
 
+@pytest.mark.posix_only
 def test_restore_transaction_absent_rollback_unlink_stays_bound_to_parent(
     tmp_path, monkeypatch
 ):
@@ -291,6 +295,7 @@ def test_restore_transaction_absent_rollback_unlink_stays_bound_to_parent(
     assert not (real_parent / created.name).exists()
 
 
+@pytest.mark.posix_only
 def test_restore_transaction_final_sweep_rolls_back_prior_parent_swap(
     tmp_path, monkeypatch
 ):
@@ -1931,6 +1936,7 @@ def test_restore_commands_refuse_symlinked_managed_parent_directories(
     ],
     ids=["hermes-root", "gateway", "cron", "gateway-platforms"],
 )
+@pytest.mark.posix_only
 def test_restore_commands_refuse_managed_parent_swap_after_outer_validation(
     tmp_path, monkeypatch, command, parent_parts
 ):
@@ -1979,6 +1985,7 @@ def test_restore_commands_refuse_managed_parent_swap_after_outer_validation(
 
 
 @pytest.mark.parametrize("command", ["restore", "uninstall"])
+@pytest.mark.posix_only
 def test_restore_transaction_rolls_back_prior_targets_when_cron_parent_swaps(
     tmp_path, monkeypatch, command
 ):
@@ -2034,6 +2041,7 @@ def test_restore_transaction_rolls_back_prior_targets_when_cron_parent_swaps(
     ],
     ids=["hermes-root", "gateway", "cron", "gateway-platforms"],
 )
+@pytest.mark.posix_only
 def test_restore_cleanup_refuses_managed_parent_swap_before_unlink(
     tmp_path, monkeypatch, command, parent_parts
 ):
@@ -2073,6 +2081,7 @@ def test_restore_cleanup_refuses_managed_parent_swap_before_unlink(
 
 
 @pytest.mark.parametrize("command", ["restore", "uninstall"])
+@pytest.mark.posix_only
 def test_restore_cleanup_unlink_stays_bound_when_parent_swaps_at_syscall(
     tmp_path, monkeypatch, command
 ):
@@ -2188,6 +2197,7 @@ def test_restore_refuses_backup_swap_before_cleanup(tmp_path, monkeypatch):
         (make_exact_019_cron_hermes, cron_path, run_py),
     ],
 )
+@pytest.mark.posix_only
 def test_restore_transaction_refuses_regular_inode_target_race_and_rolls_back(
     tmp_path, monkeypatch, command, factory, raced_path, trigger_path
 ):
@@ -2252,6 +2262,7 @@ def test_restore_transaction_refuses_regular_inode_target_race_and_rolls_back(
 
 
 @pytest.mark.parametrize("command", ["restore", "uninstall"])
+@pytest.mark.posix_only
 def test_restore_transaction_refuses_same_inode_base_content_race(
     tmp_path, monkeypatch, command
 ):
@@ -2294,6 +2305,7 @@ def test_restore_transaction_refuses_same_inode_base_content_race(
 
 @pytest.mark.parametrize("command", ["restore", "uninstall"])
 @pytest.mark.parametrize("raced_evidence", [backup_path, manifest_path])
+@pytest.mark.posix_only
 def test_restore_cleanup_refuses_same_inode_evidence_content_race(
     tmp_path, monkeypatch, command, raced_evidence
 ):
@@ -2870,6 +2882,7 @@ def test_install_snapshot_precedes_original_read_parent_swap(tmp_path, monkeypat
     assert not manifest_path(hermes_dir).exists()
 
 
+@pytest.mark.posix_only
 def test_install_rollback_unlink_stays_bound_when_parent_swaps_at_syscall(
     tmp_path, monkeypatch
 ):
