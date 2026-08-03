@@ -1,6 +1,6 @@
 # Hermes 飞书流式卡片插件（Safe Fork）
 
-> This local fork is derived from upstream `v4.2.5` and published as the safe `4.2.6` release. The independent maintenance updater, remote installer guidance, Windows ctypes process/file helpers, and maintenance admission hook were removed to reduce antivirus false-positive surface. It is intentionally a manual-update sidecar; review `docs/safe-fork.md` before deployment.
+> This local fork is derived from upstream `v4.2.5` and published as the safe `4.2.7` release. The independent maintenance updater, remote installer guidance, Windows ctypes process/file helpers, and maintenance admission hook were removed to reduce antivirus false-positive surface. It is intentionally a manual-update sidecar; review `docs/safe-fork.md` before deployment.
 
 
 [中文](README.md) | [English](README.en.md)
@@ -59,10 +59,10 @@ Hermes 飞书流式卡片插件把 Hermes Agent Gateway 的飞书/Lark 回复变
 从你的 GitHub Fork 本地工作树安装（不执行远程脚本）：
 
 ```bash
-git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
+git clone --branch v4.2.7 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card
 python -m pip wheel --no-deps -w dist .
-python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.6-py3-none-any.whl
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.7-py3-none-any.whl
 ```
 
 然后使用 Hermes runtime Python 调用整合安装器。Windows 请使用 Hermes venv 中的 `Scripts/python.exe`，不要使用系统 Python：
@@ -135,6 +135,10 @@ streaming:
 
 Hermes `v2026.4.23` 起的旧版和 Hermes 0.13.0+/0.14.0/0.15.x/0.17.x/0.18.x/0.19.0（`v2026.7.20`）均有兼容策略；`doctor` 会优先读取 `VERSION` 或 Git tag `v2026.4.23+`，也会在版本 metadata 不完整或不可解析时用可验证 anchors 兜底。自动化 strategy detection 在 Hermes 0.19.0、`v2026.7.20+` 或检测到精确 ledger 结构时，要求安装器同时验证并管理 `gateway/run.py` 与 `gateway/platforms/base.py`；V4.1 `manifest_version: 2` 把 run、required Base、optional Cron 的 backup/write/restore 作为同一事务。另一次本机真实源码只读验证确认 patcher 保持启动早于 ledger redelivery、recovery 早于 adapter send，并可幂等恢复；它只证明源码 patch 边界，不等同于真实 Gateway 或飞书 E2E。升级 Hermes 可能替换受管源码；`status` / `start` 会从配置旁 `.env` 的 `HERMES_DIR` 主动识别残留状态并给出安全恢复命令。确认是有意升级后，执行提示的 `install --accept-hermes-upgrade --yes`，再执行 `hermes gateway start`；若检测到用户改动或证据不完整，只会要求 `doctor --explain` 人工检查。
 
+## 一句话安装说明
+
+> Herme，请从用户 fork 的正式 Release `https://github.com/xurunxin/hermes-feishu-streaming-card/releases/tag/v4.2.6` 安装并启用 `hermes-feishu-streaming-card==4.2.6`，校验 SHA-256 `a818f9b0d130c86058d6a0d6ea3c75baa2dc82d91452397c9f6e88b46d233abb`，不要使用上游仓库或 `main` 分支。
+
 ## Docker 容器内安装
 
 已有 Hermes 容器优先使用：
@@ -142,7 +146,7 @@ Hermes `v2026.4.23` 起的旧版和 Hermes 0.13.0+/0.14.0/0.15.x/0.17.x/0.18.x/0
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.6
+export HFC_VERSION=v4.2.7
 bash install-docker.sh
 ```
 
@@ -182,6 +186,7 @@ bash install-docker.sh
 ![飞书话题内卡片连续更新与思考工具 timeline 展示](docs/assets/feishu-topic-card-showcase-v389.png)
 | 版本 | 重点 |
 |---|---|
+| [v4.2.7](docs/release-notes-v4.2.7.md) | 安全 fork 安装修复的文档补充：提供已验证的 Herme 一句话安装指令，并将当前安装入口统一到 `v4.2.7` |
 | [v4.2.6](docs/release-notes-v4.2.6.md) | 安全 fork 安装修复：Bash、PowerShell、Docker 默认指向用户 fork，`latest` 固定到用户 fork 的正式 release，并发布跨平台安装包 |
 | [v4.2.5](docs/release-notes-v4.2.5.md) | 审查安全热修：canonical turn 隔离、maintenance owner/checkout/drain 恢复、可执行 doctor 建议、固定 stable-tag 安装，以及 exact tested annotated-tag 发布门禁 |
 | [v4.2.4](docs/release-notes-v4.2.4.md) | 修复飞书/Lark 话题中连续引用同一消息时复用旧 session、覆盖首张回复卡的问题；每条新消息创建独立卡片，同一轮流式更新仍通过 reply alias 关联 |

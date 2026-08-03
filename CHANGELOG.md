@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.2.0.html).
 
+## V4.2.7 — 2026-08-04
+
+See also: [docs/release-notes-v4.2.7.md](docs/release-notes-v4.2.7.md)
+
+### Changed
+- Added the verified one-sentence Herme installation instruction to the main installation documentation and both user guides.
+- Current installer, Docker, package metadata, and release-gate examples now target `v4.2.7` while preserving the published `v4.2.6` release as a verified fallback.
+
 ## V4.2.6 — 2026-08-04
 
 See also: [docs/release-notes-v4.2.6.md](docs/release-notes-v4.2.6.md)

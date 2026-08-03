@@ -62,5 +62,5 @@ def test_safe_fork_removes_maintenance_runtime_and_hook_admission():
 def test_safe_fork_has_explicit_local_version():
     init_text = (PACKAGE / "__init__.py").read_text(encoding="utf-8")
     project_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert '__version__ = "4.2.6"' in init_text
-    assert 'version = "4.2.6"' in project_text
+    assert '__version__ = "4.2.7"' in init_text
+    assert 'version = "4.2.7"' in project_text

@@ -1,4 +1,4 @@
-# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.6)
+# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.7)
 
 [中文](README.md) | [English](README.en.md)
 <p align="center">
@@ -56,10 +56,10 @@ During execution, the Header follows real Hermes tool actions while public inter
 Install from your GitHub fork's local working tree; do not execute a remote script:
 
 ```bash
-git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
+git clone --branch v4.2.7 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card
 python -m pip wheel --no-deps -w dist .
-python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.6-py3-none-any.whl
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.7-py3-none-any.whl
 ```
 
 Then use the Hermes runtime Python for the integrated installer. On Windows, use the Hermes venv's `Scripts/python.exe`, not system Python:
@@ -133,6 +133,10 @@ Do not set `display.platforms.feishu.streaming: false`. Do not treat `display.sh
 
 The compatibility matrix covers older Hermes starting at `v2026.4.23` and Hermes 0.13.0+/0.14.0/0.15.x/0.17.x/0.18.x/0.19.0 (`v2026.7.20`). Automated strategy detection requires installation to verify and manage both `gateway/run.py` and `gateway/platforms/base.py` for Hermes 0.19.0, `v2026.7.20+`, or verified exact-ledger source; V4.1 `manifest_version: 2` treats run, required Base, and optional Cron backup/write/restore as one transaction. A separate read-only validation against real local source confirmed startup before ledger redelivery, recovery before adapter send, and idempotent restore, but is not a claim of a real Gateway or Feishu E2E run. `doctor` prefers `VERSION` or a Git tag and can fall back to verified anchors when metadata is missing or unparseable. A Hermes upgrade can replace managed source; `status` / `start` use `HERMES_DIR` from the config-adjacent `.env` to detect stale state and print a safe recovery command. After confirming an intentional upgrade, run the suggested `install --accept-hermes-upgrade --yes`, then `hermes gateway start`; user edits or incomplete evidence remain fail-closed behind `doctor --explain`.
 
+## One-Sentence Install Instruction
+
+> Herme, install and enable `hermes-feishu-streaming-card==4.2.6` from the user's formal fork release at `https://github.com/xurunxin/hermes-feishu-streaming-card/releases/tag/v4.2.6`, verify SHA-256 `a818f9b0d130c86058d6a0d6ea3c75baa2dc82d91452397c9f6e88b46d233abb`, and do not use the upstream repository or `main` branch.
+
 ## Docker Container Install
 
 For an existing Hermes container:
@@ -140,7 +144,7 @@ For an existing Hermes container:
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.6
+export HFC_VERSION=v4.2.7
 bash install-docker.sh
 ```
 
@@ -180,6 +184,7 @@ High-frequency stream tuning usually needs no change. For DeepSeek burst, token-
 ![Feishu topic reply card continuity and reasoning/tool timeline showcase](docs/assets/feishu-topic-card-showcase-v389.png)
 | Version | Highlights |
 |---|---|
+| [v4.2.7](docs/release-notes-v4.2.7.en.md) | Safe-fork installer documentation update: adds the verified one-sentence Herme install instruction and aligns current install entry points to `v4.2.7` |
 | [v4.2.6](docs/release-notes-v4.2.6.en.md) | Safe-fork installer fix: Bash, PowerShell, and Docker default to the user's fork, `latest` pins the user's formal release, and cross-platform installer packages are published |
 | [v4.2.5](docs/release-notes-v4.2.5.en.md) | Audit safety hotfix for canonical turn isolation, maintenance ownership/checkout/drain recovery, executable doctor actions, pinned stable-tag installs, and an exact tested annotated-tag release gate |
 | [v4.2.4](docs/release-notes-v4.2.4.en.md) | Fixes consecutive Feishu/Lark topic replies quoting the same message overwriting the first reply card; every new message opens an independent card while in-turn streaming still resolves through the reply alias |

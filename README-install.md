@@ -289,7 +289,7 @@ a privileged container, or mount host system-service directories.
 ```
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.6
+export HFC_VERSION=v4.2.7
 bash install-docker.sh
 ```
 
@@ -310,18 +310,20 @@ V4.1.1 must repeat this gate with the Hermes-venv package/Python identity and
 upgrade-restart branches. That result remains pending until the release
 candidate workflow completes.
 
-## One-Line Install
+## One-Sentence Install Instruction
+
+> Herme, install and enable `hermes-feishu-streaming-card==4.2.6` from the user's formal fork release at `https://github.com/xurunxin/hermes-feishu-streaming-card/releases/tag/v4.2.6`, verify SHA-256 `a818f9b0d130c86058d6a0d6ea3c75baa2dc82d91452397c9f6e88b46d233abb`, and do not use the upstream repository or `main` branch.
 
 macOS / Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.7/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.ps1 | iex
+irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.7/install.ps1 | iex
 ```
 
 ## After Install

@@ -1,4 +1,4 @@
-# Safe fork release note: 4.2.6
+# Safe fork release note: 4.2.7
 
 This fork is derived from upstream `v4.2.5` and is intended for a local Hermes installation where Windows Defender flags the upstream CLI.
 
@@ -52,7 +52,7 @@ python -m pytest -m windows_only -q
 For WSL, use a Linux checkout and Linux virtual environment. Do not point WSL at a Windows `.venv` or rely on the Windows AppData working tree:
 
 ```bash
-git clone --branch v4.2.6 --depth 1 \
+git clone --branch v4.2.7 --depth 1 \
   https://github.com/xurunxin/hermes-feishu-streaming-card.git \
   ~/src/hermes-feishu-streaming-card
 cd ~/src/hermes-feishu-streaming-card

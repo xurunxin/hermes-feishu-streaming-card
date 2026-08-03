@@ -456,18 +456,20 @@ V3.6.0 面向真实线上使用后的排障和维护场景：当 Hermes 升级�
 - 多 Profile 模式下继续要求每个 profile 显式配置 Feishu 凭据，顶层环境变量不会覆盖 profile 凭据。
 - 无凭据时 sidecar 使用 no-op client，不会向真实飞书发卡；`/health` 显示 `status: degraded`、`noop_mode: true`、`delivery.mode: noop`，发送返回 `not_sent` 并计入 `feishu_noop_attempts` / failure，不再伪造成功 message id。
 
-## 一行安装
+## 一句话安装说明
+
+> Herme，请从用户 fork 的正式 Release `https://github.com/xurunxin/hermes-feishu-streaming-card/releases/tag/v4.2.6` 安装并启用 `hermes-feishu-streaming-card==4.2.6`，校验 SHA-256 `a818f9b0d130c86058d6a0d6ea3c75baa2dc82d91452397c9f6e88b46d233abb`，不要使用上游仓库或 `main` 分支。
 
 macOS / Linux：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.7/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.ps1 | iex
+irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.7/install.ps1 | iex
 ```
 
 安装脚本会自动安装/升级插件、读取或提示填写飞书凭据、写入 `~/.hermes/.env`，并调用整合安装器：
@@ -525,7 +527,7 @@ python3 -m hermes_feishu_card.cli status --config ~/.hermes/config.yaml
 | `HERMES_DIR` | `/opt/hermes` | 容器内 Hermes Agent Gateway 目录 |
 | `HFC_CONFIG` | `/opt/data/config.yaml` | sidecar 配置路径 |
 | `HFC_ENV_FILE` | `/opt/data/.env` | 飞书凭据文件 |
-| `HFC_VERSION` | `latest`（脚本）/ `v4.2.6`（Compose 示例） | 指定安装 tag 或分支 |
+| `HFC_VERSION` | `latest`（脚本）/ `v4.2.7`（Compose 示例） | 指定安装 tag 或分支 |
 | `HFC_PYTHON` | 自动检测 Hermes venv | 显式指定容器内 Python |
 
 示例：
@@ -533,7 +535,7 @@ python3 -m hermes_feishu_card.cli status --config ~/.hermes/config.yaml
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.6
+export HFC_VERSION=v4.2.7
 bash install-docker.sh --profile-id child --event-url http://hfc-sidecar:8765/events
 ```
 
@@ -544,7 +546,7 @@ bash install-docker.sh --profile-id child --event-url http://hfc-sidecar:8765/ev
 ## 手动安装
 
 ```bash
-git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
+git clone --branch v4.2.7 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card
 pip install -e ".[test]"
 
