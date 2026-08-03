@@ -1985,6 +1985,24 @@ def _call_function(call):
     return None, None
 
 
+def _call_parts(call):
+    """Return ``(owner, function, args, keywords)`` for a validated call.
+
+    Hermes v2026.7 wraps delivery-ledger calls in ``asyncio.to_thread`` so
+    filesystem work cannot block the event loop.  The wrapper is accepted only
+    when it is exactly ``asyncio.to_thread(<named function>, ...)``; arbitrary
+    wrappers remain unsupported and fail closed.
+    """
+    owner, function = _call_function(call)
+    if owner == "asyncio" and function == "to_thread":
+        if not call.args or not isinstance(call.args[0], ast.Name):
+            return None, None, (), ()
+        return None, call.args[0].id, tuple(call.args[1:]), tuple(call.keywords)
+    if call is None:
+        return None, None, (), ()
+    return owner, function, tuple(call.args), tuple(call.keywords)
+
+
 def _is_exact_assignment_call(node, *, targets, owner, function, args):
     if _assignment_target_names(node) != targets:
         return False
@@ -2064,10 +2082,10 @@ def _expression_call(node):
 
 def _is_exact_ledger_call(node, *, function: str, required_keywords) -> bool:
     call = _expression_call(node)
-    owner, actual_function = _call_function(call)
-    if owner is not None or actual_function != function or call.args:
+    owner, actual_function, args, call_keywords = _call_parts(call)
+    if owner is not None or actual_function != function or args:
         return False
-    keywords = {keyword.arg: keyword.value for keyword in call.keywords if keyword.arg}
+    keywords = {keyword.arg: keyword.value for keyword in call_keywords if keyword.arg}
     return all(
         name in keywords and _same_expression(keywords[name], expression)
         for name, expression in required_keywords.items()
@@ -2076,15 +2094,15 @@ def _is_exact_ledger_call(node, *, function: str, required_keywords) -> bool:
 
 def _is_exact_positional_call(node, *, function: str, args) -> bool:
     call = _expression_call(node)
-    owner, actual_function = _call_function(call)
+    owner, actual_function, actual_args, keywords = _call_parts(call)
     return (
         owner is None
         and actual_function == function
-        and not call.keywords
-        and len(call.args) == len(args)
+        and not keywords
+        and len(actual_args) == len(args)
         and all(
             _same_expression(arg, expected)
-            for arg, expected in zip(call.args, args)
+            for arg, expected in zip(actual_args, args)
         )
     )
 
@@ -2119,13 +2137,13 @@ def _is_exact_final_send_assignment(node) -> bool:
 
 def _is_exact_mark_failed_call(node) -> bool:
     call = _expression_call(node)
-    owner, function = _call_function(call)
+    owner, function, args, keywords = _call_parts(call)
     return (
         owner is None
         and function == "mark_failed"
-        and len(call.args) == 2
-        and not call.keywords
-        and _same_expression(call.args[0], "_obligation_id")
+        and len(args) == 2
+        and not keywords
+        and _same_expression(args[0], "_obligation_id")
     )
 
 
@@ -3312,12 +3330,6 @@ def _render_hfc_command_hook_block(indent: str, newline: str):
     return [
         f"{indent}{HFC_COMMAND_PATCH_BEGIN}{newline}",
         f"{indent}try:{newline}",
-        (
-            f"{inner_indent}from hermes_feishu_card.hook_runtime "
-            f"import maintenance_admission_from_hermes_locals as _hfc_enforce_maintenance_admission{newline}"
-        ),
-        f"{inner_indent}if await _hfc_enforce_maintenance_admission(locals()):{newline}",
-        f"{deeper_indent}return None{newline}",
         (
             f"{inner_indent}from hermes_feishu_card.hook_runtime "
             f"import handle_hfc_command_from_hermes_locals as _hfc_handle_command{newline}"

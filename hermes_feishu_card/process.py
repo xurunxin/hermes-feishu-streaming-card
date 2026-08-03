@@ -11,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import csv
+import io
 from typing import Any
 import urllib.error
 import urllib.parse
@@ -218,14 +220,19 @@ def start_sidecar(
     finally:
         log_handle.close()
 
-    try:
-        write_pid_record(process.pid, token)
-    except (OSError, ValueError) as exc:
-        _wait_for_child_exit(
-            process,
-            timeout=DETACHED_PIDFILE_HANDSHAKE_SECONDS + 1.0,
-        )
-        return f"failed: pidfile could not be written: {exc.__class__.__name__}"
+    # On native Windows launched from an MSYS/Git-Bash parent, ``Popen.pid``
+    # can be the translated process id while the child observes its native
+    # Windows pid.  Let the managed child publish its own pid in that case;
+    # the parent still authenticates the record by token and health identity.
+    if os.name != "nt":
+        try:
+            write_pid_record(process.pid, token)
+        except (OSError, ValueError) as exc:
+            _wait_for_child_exit(
+                process,
+                timeout=DETACHED_PIDFILE_HANDSHAKE_SECONDS + 1.0,
+            )
+            return f"failed: pidfile could not be written: {exc.__class__.__name__}"
 
     detached_record = {
         "pid": process.pid,
@@ -239,6 +246,16 @@ def start_sidecar(
             clear_pid()
             return f"failed: process exited with {process.returncode}"
         health = fetch_health(config)
+        if os.name == "nt":
+            # The child writes the authoritative native pid after it starts.
+            # Never compare a translated MSYS parent pid with health data.
+            child_record = read_pid_record()
+            if (
+                isinstance(child_record, dict)
+                and child_record.get("manager") == "detached"
+                and child_record.get("token") == token
+            ):
+                detached_record = child_record
         if (
             health is not None
             and _record_matches_health(detached_record, health)
@@ -1051,17 +1068,53 @@ def stop_pid(pid: int) -> None:
 
 
 def _pid_is_running_windows(pid: int) -> bool:
-    try:
-        import ctypes
+    """Probe a Windows PID without native handle APIs.
 
-        kernel32 = ctypes.windll.kernel32
-        process_handle = kernel32.OpenProcess(0x1000, False, pid)
-        if process_handle:
-            kernel32.CloseHandle(process_handle)
-            return True
+    The Python runtime used through MSYS can raise ``SystemError`` from
+    ``os.kill(pid, 0)`` for a native child PID.  Fall back to the built-in
+    ``tasklist`` command and parse its CSV output rather than opening a
+    Windows process handle.
+    """
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
         return False
-    except Exception:
+    except PermissionError:
+        return True
+    except OSError:
         return False
+    except SystemError:
+        try:
+            result = subprocess.run(
+                [
+                    "tasklist",
+                    "/FI",
+                    f"PID eq {pid}",
+                    "/FO",
+                    "CSV",
+                    "/NH",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="mbcs",
+                errors="replace",
+                timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError, UnicodeError):
+            return False
+        if result.returncode != 0:
+            return False
+        try:
+            rows = csv.reader(io.StringIO(result.stdout))
+            return any(
+                len(row) >= 2 and row[1].strip() == str(pid)
+                for row in rows
+            )
+        except (csv.Error, TypeError):
+            return False
+    return True
 
 
 def _stop_pid_windows(pid: int) -> None:

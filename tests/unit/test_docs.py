@@ -40,11 +40,11 @@ def test_readme_documents_sidecar_only_and_supported_hermes_version():
     readme = read_doc("README.md")
     guide = read_doc("docs/user-guide.md")
 
-    assert readme.startswith("# Hermes 飞书流式卡片插件\n")
+    assert readme.startswith("# Hermes 飞书流式卡片插件（Safe Fork）\n")
     assert "[English](README.en.md)" in readme
-    assert "img.shields.io/github/stars/baileyh8/hermes-feishu-streaming-card" in readme
-    assert "img.shields.io/github/v/release/baileyh8/hermes-feishu-streaming-card" in readme
-    assert "img.shields.io/github/actions/workflow/status/baileyh8/hermes-feishu-streaming-card/tests.yml" in readme
+    assert "img.shields.io/github/stars/xurunxin/hermes-feishu-streaming-card" in readme
+    assert "img.shields.io/github/v/release/xurunxin/hermes-feishu-streaming-card" in readme
+    assert "img.shields.io/github/actions/workflow/status/xurunxin/hermes-feishu-streaming-card/tests.yml" in readme
     assert "img.shields.io/badge/Python-3.9%2B" in readme
     assert "img.shields.io/badge/Feishu%20%2F%20Lark-Streaming%20Cards" in readme
     assert "img.shields.io/badge/Runtime-Sidecar--only" in readme
@@ -65,7 +65,8 @@ def test_readme_documents_sidecar_only_and_supported_hermes_version():
     assert "/hfc status" in readme
     assert "HERMES_FEISHU_CARD_DELTA_COALESCE_MS" in readme
     assert "sidecar-only" in readme.lower()
-    assert "setup --hermes-dir" in readme
+    assert "install --hermes-dir" in readme
+    assert "不执行远程脚本" in readme
     assert "整合安装器" in readme
     assert "streaming.enabled" in readme
     assert "display.platforms.feishu.streaming" in readme
@@ -77,7 +78,7 @@ def test_readme_documents_sidecar_only_and_supported_hermes_version():
         "</p>\n\n"
         "![Hermes Feishu Streaming Card 封面](docs/assets/readme-cover.png)"
     ) in readme
-    assert len(readme.splitlines()) <= 280
+    assert len(readme.splitlines()) <= 285
     assert (ROOT / "docs/assets/readme-cover.png").exists()
     assert (ROOT / "docs/assets/feishu-card-showcase-v385.png").exists()
     assert (ROOT / "docs/assets/feishu-weather-card.png").exists()
@@ -172,8 +173,9 @@ def test_readme_documents_one_line_install_and_release_packages():
     install_doc = read_doc("README-install.md")
     workflow = read_doc(".github/workflows/release-assets.yml")
 
-    assert "curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash" in readme
-    assert "irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex" in readme
+    assert "curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash" not in readme
+    assert "irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex" not in readme
+    assert "git clone https://github.com/xurunxin/hermes-feishu-streaming-card.git" in readme
     assert "README-install.md" in readme
     assert "install-docker.sh" in readme
     assert "docker-compose.example.yml" in readme
@@ -495,13 +497,15 @@ def test_english_readme_and_docs_are_linked():
     ]
 
     assert "[中文](README.md)" in english_readme
-    assert english_readme.startswith("# Hermes Feishu Streaming Card Plugin\n")
+    assert english_readme.startswith(
+        "# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.5.post1)\n"
+    )
     assert "Hermes Feishu Streaming Card turns Hermes Agent Gateway replies" in english_readme
     assert "/hfc status" in english_readme
     assert "HERMES_FEISHU_CARD_DELTA_COALESCE_MS" in english_readme
     assert "What You Get" in english_readme
     assert "Problems Solved" in english_readme
-    assert "img.shields.io/github/stars/baileyh8/hermes-feishu-streaming-card" in english_readme
+    assert "img.shields.io/github/stars/xurunxin/hermes-feishu-streaming-card" in english_readme
     assert "docs/assets/readme-cover.png" in english_readme
     assert "docs/assets/feishu-card-showcase-v385.png" in english_readme
     assert "PR #76" in english_readme
@@ -511,7 +515,7 @@ def test_english_readme_and_docs_are_linked():
     assert "PR #77" in english_readme
     assert "colinaaa" in english_readme
     assert "zayn-0101" in english_readme
-    assert "setup --hermes-dir" in english_readme
+    assert "install --hermes-dir" in english_readme
     assert "Hermes Streaming Config" in english_readme
     assert "streaming.enabled" in english_readme
     assert "display.platforms.feishu.streaming" in english_readme

@@ -1935,13 +1935,10 @@ def test_queued_complete_patch_tolerates_interleaved_stream_confirmation():
     ast.parse(patched)
 
 
-def test_hfc_command_patch_enforces_maintenance_admission_before_commands():
+def test_hfc_command_patch_has_no_removed_update_admission_dependency():
     block = "".join(patcher._render_hfc_command_hook_block("    ", "\n"))
-
-    admission = block.index("maintenance_admission_from_hermes_locals")
-    command = block.index("handle_hfc_command_from_hermes_locals")
-    assert admission < command
-    assert "if await _hfc_enforce_maintenance_admission(locals()):" in block
+    assert "maintenance_admission_from_hermes_locals" not in block
+    assert "_hfc_enforce_maintenance_admission" not in block
     ast.parse("async def patched(self, event):\n" + block)
 
 

@@ -268,8 +268,9 @@ def test_start_safely_migrates_verified_v40_pidfile_in_private_state_dir(tmp_pat
             legacy_stat.st_dev,
             legacy_stat.st_ino,
         )
-        assert migrated_stat.st_mode & 0o777 == 0o600
-        assert record_path.parent.stat().st_mode & 0o777 == 0o700
+        if os.name != "nt":
+            assert migrated_stat.st_mode & 0o777 == 0o600
+            assert record_path.parent.stat().st_mode & 0o777 == 0o700
     finally:
         run_cli("stop", "--config", str(config), env=env)
         time.sleep(0.1)

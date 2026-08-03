@@ -21,7 +21,12 @@ from .operations_transport import (
     ensure_transport_root_secret,
     transport_root_privacy_verified,
 )
-from .process import local_control_host, state_dir, wait_for_managed_pidfile
+from .process import (
+    local_control_host,
+    state_dir,
+    wait_for_managed_pidfile,
+    write_pid_record,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -216,11 +221,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--managed-pidfile", action="store_true")
     args = parser.parse_args(argv)
 
-    if args.managed_pidfile and not wait_for_managed_pidfile(
-        os.getpid(), args.token
-    ):
-        logger.error("Managed detached sidecar pidfile handshake failed.")
-        return 1
+    if args.managed_pidfile:
+        if os.name == "nt":
+            # A Git-Bash/MSYS parent can observe a translated Popen.pid on
+            # Windows.  Publish the native child pid from inside the child so
+            # health and stop operations share one identity.
+            try:
+                write_pid_record(os.getpid(), args.token)
+            except (OSError, ValueError) as exc:
+                logger.error(
+                    "Managed detached sidecar pidfile write failed: %s",
+                    exc.__class__.__name__,
+                )
+                return 1
+        elif not wait_for_managed_pidfile(os.getpid(), args.token):
+            logger.error("Managed detached sidecar pidfile handshake failed.")
+            return 1
 
     config = (
         load_config(args.config, env_file=args.env_file)

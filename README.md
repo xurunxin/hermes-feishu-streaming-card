@@ -1,14 +1,17 @@
-# Hermes 飞书流式卡片插件
+# Hermes 飞书流式卡片插件（Safe Fork）
+
+> This local fork is derived from upstream `v4.2.5` as `4.2.5.post1`. The independent maintenance updater, remote installer guidance, Windows ctypes process/file helpers, and maintenance admission hook were removed to reduce antivirus false-positive surface. It is intentionally a manual-update sidecar; review `docs/safe-fork.md` before deployment.
+
 
 [中文](README.md) | [English](README.en.md)
 <p align="center">
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&logo=github&label=Stars&color=2f80ed"></a>
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&logo=githubactions&label=Release&color=22c55e"></a>
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/baileyh8/hermes-feishu-streaming-card/tests.yml?branch=main&style=for-the-badge&label=Tests&logo=githubactions"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&logo=github&label=Stars&color=2f80ed"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&logo=githubactions&label=Release&color=22c55e"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/xurunxin/hermes-feishu-streaming-card/tests.yml?branch=main&style=for-the-badge&label=Tests&logo=githubactions"></a>
   <img alt="Python 3.9+" src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="Feishu/Lark" src="https://img.shields.io/badge/Feishu%20%2F%20Lark-Streaming%20Cards-00D6B4?style=for-the-badge">
   <img alt="Sidecar only" src="https://img.shields.io/badge/Runtime-Sidecar--only-7C3AED?style=for-the-badge">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&color=64748b"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&color=64748b"></a>
 </p>
 
 ![Hermes Feishu Streaming Card 封面](docs/assets/readme-cover.png)
@@ -53,23 +56,22 @@ Hermes 飞书流式卡片插件把 Hermes Agent Gateway 的飞书/Lark 回复变
 
 ## 快速安装
 
-macOS / Linux：
+从你的 GitHub Fork 本地工作树安装（不执行远程脚本）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash
+git clone https://github.com/xurunxin/hermes-feishu-streaming-card.git
+cd hermes-feishu-streaming-card
+python -m pip wheel --no-deps -w dist .
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.5.post1-py3-none-any.whl
 ```
-Windows PowerShell：
 
-```powershell
-irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex
-```
-安装脚本会安装或升级插件、读取/提示飞书凭据、写入本地 `.env`，并调用整合安装器：
+然后使用 Hermes runtime Python 调用整合安装器。Windows 请使用 Hermes venv 中的 `Scripts/python.exe`，不要使用系统 Python：
 
 ```bash
-python3 -m hermes_feishu_card.cli setup \
+python -m hermes_feishu_card.cli install \
   --hermes-dir ~/.hermes/hermes-agent \
-  --config ~/.hermes/config.yaml \
-  --yes
+  --yes \
+  --accept-hermes-upgrade
 ```
 
 安装完成后检查 sidecar：

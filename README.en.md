@@ -1,14 +1,14 @@
-# Hermes Feishu Streaming Card Plugin
+# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.5.post1)
 
 [中文](README.md) | [English](README.en.md)
 <p align="center">
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&logo=github&label=Stars&color=2f80ed"></a>
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&logo=githubactions&label=Release&color=22c55e"></a>
-  <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/baileyh8/hermes-feishu-streaming-card/tests.yml?branch=main&style=for-the-badge&label=Tests&logo=githubactions"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&logo=github&label=Stars&color=2f80ed"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&logo=githubactions&label=Release&color=22c55e"></a>
+  <a href="https://github.com/xurunxin/hermes-feishu-streaming-card/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/xurunxin/hermes-feishu-streaming-card/tests.yml?branch=main&style=for-the-badge&label=Tests&logo=githubactions"></a>
   <img alt="Python 3.9+" src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="Feishu/Lark" src="https://img.shields.io/badge/Feishu%20%2F%20Lark-Streaming%20Cards-00D6B4?style=for-the-badge">
   <img alt="Sidecar only" src="https://img.shields.io/badge/Runtime-Sidecar--only-7C3AED?style=for-the-badge">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&color=64748b"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/xurunxin/hermes-feishu-streaming-card?style=for-the-badge&color=64748b"></a>
 </p>
 
 ![Hermes Feishu Streaming Card cover](docs/assets/readme-cover.png)
@@ -53,29 +53,28 @@ During execution, the Header follows real Hermes tool actions while public inter
 
 ## Quick Install
 
-macOS / Linux:
+Install from your GitHub fork's local working tree; do not execute a remote script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash
+git clone https://github.com/xurunxin/hermes-feishu-streaming-card.git
+cd hermes-feishu-streaming-card
+python -m pip wheel --no-deps -w dist .
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.5.post1-py3-none-any.whl
 ```
-Windows PowerShell:
 
-```powershell
-irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex
-```
-The installer installs or upgrades the plugin, reads or prompts for Feishu credentials, writes a local `.env`, and runs the integrated setup command:
+Then use the Hermes runtime Python for the integrated installer. On Windows, use the Hermes venv's `Scripts/python.exe`, not system Python:
 
 ```bash
-python3 -m hermes_feishu_card.cli setup \
+python -m hermes_feishu_card.cli install \
   --hermes-dir ~/.hermes/hermes-agent \
-  --config ~/.hermes/config.yaml \
-  --yes
+  --yes \
+  --accept-hermes-upgrade
 ```
 
 Check the sidecar after install:
 
 ```bash
-python3 -m hermes_feishu_card.cli status --config ~/.hermes/config.yaml
+python -m hermes_feishu_card.cli status --config ~/.hermes/config.yaml
 ```
 
 For Release packages, Docker, PEP 668, uv, and installer details, see [README-install.md](README-install.md) and the [full user guide](docs/user-guide.en.md).

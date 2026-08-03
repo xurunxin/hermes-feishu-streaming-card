@@ -16,7 +16,6 @@ from hermes_feishu_card.diagnostics import _CARD_FINDING_CODES
 from hermes_feishu_card.install.detect import detect_hermes
 from hermes_feishu_card.install.patcher import apply_patch
 from hermes_feishu_card.install.recovery import execute_recovery, plan_recovery
-from hermes_feishu_card.maintenance_update import UpdateInspection
 from hermes_feishu_card.operations import (
     _FINDING_COPY,
     _operation_buttons,
@@ -27,132 +26,12 @@ from hermes_feishu_card.operations import (
 )
 
 
-def update_inspection() -> UpdateInspection:
-    return UpdateInspection(
-        ready=True,
-        reason_code="ready",
-        current_version="0.19.1",
-        current_head="f3cda0ce",
-        target_summary="0.19.2 available",
-        target_fingerprint="a" * 64,
-        hfc_version="4.2.0",
-        artifact_sha256="b" * 64,
-        active_sessions=0,
-        requires_drain=False,
-        hook_state="installed",
-        hook_fingerprint="c" * 64,
-        maintenance_ready=True,
-        changed_paths=(),
-        created_at=100.0,
-    )
 
 
-def test_private_update_confirmation_is_bound_to_exact_operator_and_evidence():
-    store = OperationStore(secret=b"test", now=lambda: 100.0)
-    inspection = update_inspection()
-    operation, created = store.prepare_update(
-        chat_id="oc_private",
-        profile_id="default",
-        initiator_open_id="ou_owner",
-        operation_id="update-1",
-        transport_secret=b"adapter-process-local-proof",
-        idempotency_key="update-message-1",
-        inspection=inspection,
-    )
-
-    assert created is True
-    assert operation.kind == "update"
-    assert operation.state == "awaiting_confirmation"
-    assert operation.owner_open_id == "ou_owner"
-    assert operation.update_evidence_fingerprint == inspection.fingerprint
-    assert operation.expires_at == 220.0
-
-    with pytest.raises(OperationRejected, match="different operator"):
-        store.transition_update(
-            store.token(operation, "confirm_update"),
-            action="confirm_update",
-            operator_open_id="ou_other",
-            callback_chat_id="oc_private",
-            callback_profile_id="default",
-            callback_evidence_fingerprint=inspection.fingerprint,
-        )
-
-    accepted = store.transition_update(
-        store.token(operation, "confirm_update"),
-        action="confirm_update",
-        operator_open_id="ou_owner",
-        callback_chat_id="oc_private",
-        callback_profile_id="default",
-        callback_evidence_fingerprint=inspection.fingerprint,
-    )
-    assert accepted.state == "locking"
 
 
-def test_private_update_rejects_changed_evidence_and_duplicate_confirmation():
-    store = OperationStore(secret=b"test", now=lambda: 100.0)
-    operation, _created = store.prepare_update(
-        chat_id="oc_private",
-        profile_id="default",
-        initiator_open_id="ou_owner",
-        operation_id="update-2",
-        transport_secret=b"adapter-process-local-proof",
-        idempotency_key="update-message-2",
-        inspection=update_inspection(),
-    )
-
-    with pytest.raises(OperationRejected, match="update evidence changed"):
-        store.transition_update(
-            store.token(operation, "confirm_update"),
-            action="confirm_update",
-            operator_open_id="ou_owner",
-            callback_chat_id="oc_private",
-            callback_profile_id="default",
-            callback_evidence_fingerprint="d" * 64,
-        )
-
-    token = store.token(operation, "confirm_update")
-    store.transition_update(
-        token,
-        action="confirm_update",
-        operator_open_id="ou_owner",
-        callback_chat_id="oc_private",
-        callback_profile_id="default",
-        callback_evidence_fingerprint=operation.update_evidence_fingerprint,
-    )
-    with pytest.raises(OperationRejected, match="invalid update transition"):
-        store.transition_update(
-            token,
-            action="confirm_update",
-            operator_open_id="ou_owner",
-            callback_chat_id="oc_private",
-            callback_profile_id="default",
-            callback_evidence_fingerprint=operation.update_evidence_fingerprint,
-        )
 
 
-def test_private_update_cancel_is_terminal_without_mutation():
-    store = OperationStore(secret=b"test", now=lambda: 100.0)
-    operation, _created = store.prepare_update(
-        chat_id="oc_private",
-        profile_id="default",
-        initiator_open_id="ou_owner",
-        operation_id="update-3",
-        transport_secret=b"adapter-process-local-proof",
-        idempotency_key="update-message-3",
-        inspection=update_inspection(),
-    )
-
-    cancelled = store.transition_update(
-        store.token(operation, "cancel_update"),
-        action="cancel_update",
-        operator_open_id="ou_owner",
-        callback_chat_id="oc_private",
-        callback_profile_id="default",
-        callback_evidence_fingerprint=operation.update_evidence_fingerprint,
-    )
-
-    assert cancelled.state == "cancelled"
-    assert store.is_inflight(operation.operation_id) is False
 
 
 def operation_kwargs() -> dict[str, object]:
@@ -285,16 +164,16 @@ def test_full_recovery_fingerprint_flows_from_plan_to_operation_to_executor(tmp_
     original = detection.run_py.read_text(encoding="utf-8")
     patched = apply_patch(original, strategy=detection.hook_strategy)
     backup = detection.run_py.with_name("run.py.hermes_feishu_card.bak")
-    backup.write_text(original, encoding="utf-8")
+    backup.write_bytes(original.encode("utf-8"))
     corrupt = patched.replace("# HERMES_FEISHU_CARD_COMPLETE_PATCH_END\n", "")
-    detection.run_py.write_text(corrupt, encoding="utf-8")
+    detection.run_py.write_bytes(corrupt.encode("utf-8"))
     (root / ".hermes_feishu_card_manifest").write_text(
         json.dumps(
             {
                 "run_py": "gateway/run.py",
-                "patched_sha256": sha256(corrupt.encode("utf-8")).hexdigest(),
+                "patched_sha256": sha256(detection.run_py.read_bytes()).hexdigest(),
                 "backup": "gateway/run.py.hermes_feishu_card.bak",
-                "backup_sha256": sha256(original.encode("utf-8")).hexdigest(),
+                "backup_sha256": sha256(backup.read_bytes()).hexdigest(),
             },
             sort_keys=True,
         ) + "\n",

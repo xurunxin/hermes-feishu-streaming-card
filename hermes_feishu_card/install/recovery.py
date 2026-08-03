@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import tempfile
 import threading
 import time
 from typing import Dict, Iterator, List, Optional, Tuple
@@ -276,7 +277,8 @@ def execute_recovery(
     *,
     accept_hermes_upgrade: bool = False,
 ) -> RecoveryResult:
-    _require_secure_dirfd_transactions()
+    if not _secure_dirfd_transactions_supported() and os.name != "nt":
+        _require_secure_dirfd_transactions()
     with _root_lock(detection.root):
         manifest = _read_manifest_evidence(detection.root / MANIFEST_NAME)
         if manifest is not None and manifest.get(_MANIFEST_ERROR) == "unsupported_version":
@@ -730,7 +732,16 @@ def _commit_recovery_changes(
     *,
     accept_hermes_upgrade: bool = False,
 ) -> None:
-    _require_secure_dirfd_transactions()
+    if not _secure_dirfd_transactions_supported():
+        if os.name == "nt":
+            _commit_recovery_changes_portable(
+                detection,
+                plan,
+                changes,
+                accept_hermes_upgrade=accept_hermes_upgrade,
+            )
+            return
+        _require_secure_dirfd_transactions()
     ordered_changes = [change for change in changes if change[1] is not None]
     ordered_changes.extend(change for change in changes if change[1] is None)
     target_ancestries, directory_snapshots = _snapshot_controlled_ancestries(
@@ -847,6 +858,196 @@ def _commit_recovery_changes(
             temp_path.cleanup()
         for binding in target_bindings.values():
             binding.release()
+
+
+def _commit_recovery_changes_portable(
+    detection: HermesDetection,
+    plan: RecoveryPlan,
+    changes: List[Tuple[Path, Optional[str]]],
+    *,
+    accept_hermes_upgrade: bool = False,
+) -> None:
+    """Commit recovery with standard Python filesystem primitives on Windows.
+
+    The dirfd/O_NOFOLLOW transaction is unavailable on Windows without using
+    native APIs.  This fallback keeps the important invariants that are
+    portable: controlled ancestry checks, regular-file checks, evidence
+    revalidation, same-directory temporary files, atomic ``os.replace`` for
+    writes, and ownership checks before rollback.  It deliberately fails
+    closed when any check is inconclusive; it is not equivalent to the Unix
+    dirfd transaction and must not be described as such.
+    """
+    ordered_changes = [change for change in changes if change[1] is not None]
+    ordered_changes.extend(change for change in changes if change[1] is None)
+    target_ancestries, directory_snapshots = _snapshot_controlled_ancestries(
+        detection.root, [target for target, _contents in ordered_changes]
+    )
+    originals: Dict[Path, Optional[str]] = {}
+    pre_write_snapshots: Dict[Path, Optional[_OwnedWriteSnapshot]] = {}
+    post_write_snapshots: Dict[Path, Optional[_OwnedWriteSnapshot]] = {}
+    staged: Dict[Path, Path] = {}
+    changed: List[Path] = []
+    try:
+        for target, contents in ordered_changes:
+            _assert_controlled_ancestry_unchanged(
+                target, target_ancestries, directory_snapshots
+            )
+            pre = _snapshot_prewrite_target(target)
+            pre_write_snapshots[target] = pre
+            originals[target] = _portable_read_target_text(target, pre)
+            _assert_prewrite_target_unchanged(target, pre)
+            if contents is not None:
+                staged[target] = _portable_stage_text(target, contents)
+
+        if (
+            plan_recovery(
+                detection,
+                accept_hermes_upgrade=accept_hermes_upgrade,
+            ).fingerprint
+            != plan.fingerprint
+        ):
+            raise RecoveryRefused("recovery evidence changed; rerun diagnosis")
+
+        for target, contents in ordered_changes:
+            _assert_controlled_ancestry_unchanged(
+                target, target_ancestries, directory_snapshots
+            )
+            _assert_prewrite_target_unchanged(
+                target, pre_write_snapshots[target]
+            )
+            if contents is None:
+                if pre_write_snapshots[target] is None:
+                    raise RecoveryRefused("recovery target disappeared before delete")
+                target.unlink()
+                changed.append(target)
+                post_write_snapshots[target] = None
+            else:
+                os.replace(staged[target], target)
+                staged.pop(target, None)
+                changed.append(target)
+                post_write_snapshots[target] = _snapshot_owned_write(
+                    target, contents
+                )
+            _assert_controlled_ancestry_unchanged(
+                target, target_ancestries, directory_snapshots
+            )
+
+        for target, _contents in ordered_changes:
+            _assert_controlled_ancestry_unchanged(
+                target, target_ancestries, directory_snapshots
+            )
+            if _snapshot_prewrite_target(target) != post_write_snapshots[target]:
+                raise RecoveryRefused("recovery target changed after write")
+    except Exception as exc:
+        rollback_error = _rollback_recovery_changes_portable(
+            changed,
+            originals,
+            pre_write_snapshots,
+            post_write_snapshots,
+            target_ancestries,
+            directory_snapshots,
+        )
+        if rollback_error is not None:
+            raise RecoveryRefused(
+                "recovery rollback failed; install state requires manual review"
+            ) from exc
+        raise
+    finally:
+        for temp_path in staged.values():
+            try:
+                temp_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def _rollback_recovery_changes_portable(
+    changed: List[Path],
+    originals: Dict[Path, Optional[str]],
+    pre_write_snapshots: Dict[Path, Optional[_OwnedWriteSnapshot]],
+    post_write_snapshots: Dict[Path, Optional[_OwnedWriteSnapshot]],
+    target_ancestries: Dict[Path, Tuple[Path, ...]],
+    directory_snapshots: Dict[Path, _DirectoryIdentity],
+) -> Optional[Exception]:
+    first_error: Optional[Exception] = None
+    for target in reversed(changed):
+        try:
+            _assert_controlled_ancestry_unchanged(
+                target, target_ancestries, directory_snapshots
+            )
+            expected_post = post_write_snapshots[target]
+            if _snapshot_prewrite_target(target) != expected_post:
+                raise RecoveryRefused("recovery rollback target changed")
+            original = originals[target]
+            if original is None:
+                if _snapshot_prewrite_target(target) is not None:
+                    target.unlink()
+            else:
+                replacement = _portable_stage_text(target, original)
+                try:
+                    os.replace(replacement, target)
+                finally:
+                    try:
+                        replacement.unlink()
+                    except FileNotFoundError:
+                        pass
+            if _snapshot_prewrite_target(target) != pre_write_snapshots[target]:
+                raise RecoveryRefused("recovery rollback target changed")
+        except (OSError, RecoveryRefused) as exc:
+            if first_error is None:
+                first_error = exc
+    return first_error
+
+
+def _portable_read_target_text(
+    target: Path, expected: Optional[_OwnedWriteSnapshot]
+) -> Optional[str]:
+    if expected is None:
+        return None
+    try:
+        contents = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise RecoveryRefused("recovery target could not be read safely") from exc
+    if _snapshot_prewrite_target(target) != expected:
+        raise RecoveryRefused("recovery target changed during read")
+    return contents
+
+
+def _portable_stage_text(target: Path, contents: str) -> Path:
+    _read_directory_identity(target.parent, "recovery staging parent is unsafe")
+    try:
+        target_snapshot = target.lstat()
+    except FileNotFoundError:
+        mode = 0o600
+    else:
+        if not stat.S_ISREG(target_snapshot.st_mode):
+            raise RecoveryRefused("recovery target is not safe before write")
+        mode = stat.S_IMODE(target_snapshot.st_mode)
+    descriptor = -1
+    temporary: Optional[Path] = None
+    try:
+        descriptor, raw_path = tempfile.mkstemp(
+            prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent)
+        )
+        temporary = Path(raw_path)
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+            descriptor = -1
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.chmod(temporary, mode)
+        except OSError:
+            pass
+        return temporary
+    except Exception:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+        raise
 
 
 def _rollback_recovery_changes(
@@ -2225,9 +2426,11 @@ def _check_manifest(
         f"{detection.run_py.name}{BACKUP_SUFFIX}"
     )
     expected_backup = _relative_path(detection.root, backup_path)
+    manifest_run = str(manifest.get("run_py") or "").replace("\\", "/")
+    manifest_backup = str(manifest.get("backup") or "").replace("\\", "/")
     paths_valid = bool(
-        manifest.get("run_py") == expected_run
-        and manifest.get("backup") == expected_backup
+        manifest_run == expected_run
+        and manifest_backup == expected_backup
     )
     if not paths_valid:
         findings.append(_finding("manifest_path_mismatch", "error"))
@@ -2318,8 +2521,9 @@ def _check_cron_manifest(
     else:
         backup_path = cron_py.with_name(f"{cron_py.name}{BACKUP_SUFFIX}")
         paths_valid = bool(
-            manifest.get("cron_py") == _relative_path(detection.root, cron_py)
-            and manifest.get("cron_backup")
+            _normalize_manifest_path(manifest.get("cron_py"))
+            == _relative_path(detection.root, cron_py)
+            and _normalize_manifest_path(manifest.get("cron_backup"))
             == _relative_path(detection.root, backup_path)
         )
     if not paths_valid:
@@ -2382,8 +2586,9 @@ def _check_base_manifest(
         return _ManifestChecks(False, False, False, False, "", ())
     backup_path = base_py.with_name(f"{base_py.name}{BACKUP_SUFFIX}")
     paths_valid = bool(
-        manifest.get("base_py") == _relative_path(detection.root, base_py)
-        and manifest.get("base_backup")
+        _normalize_manifest_path(manifest.get("base_py"))
+        == _relative_path(detection.root, base_py)
+        and _normalize_manifest_path(manifest.get("base_backup"))
         == _relative_path(detection.root, backup_path)
     )
     findings = []
@@ -2619,11 +2824,11 @@ def _fingerprint_parts(
                 f"{cron_py.name}{BACKUP_SUFFIX}"
             )
             cron_path_matches = str(
-                manifest.get("cron_py")
+                _normalize_manifest_path(manifest.get("cron_py"))
                 == _relative_path(detection.root, cron_py)
             ).lower()
             cron_backup_path_matches = str(
-                manifest.get("cron_backup")
+                _normalize_manifest_path(manifest.get("cron_backup"))
                 == _relative_path(detection.root, expected_cron_backup)
             ).lower()
         base_py = detection.base_py
@@ -2635,11 +2840,11 @@ def _fingerprint_parts(
                 f"{base_py.name}{BACKUP_SUFFIX}"
             )
             base_path_matches = str(
-                manifest.get("base_py")
+                _normalize_manifest_path(manifest.get("base_py"))
                 == _relative_path(detection.root, base_py)
             ).lower()
             base_backup_path_matches = str(
-                manifest.get("base_backup")
+                _normalize_manifest_path(manifest.get("base_backup"))
                 == _relative_path(detection.root, expected_base_backup)
             ).lower()
 
@@ -2806,9 +3011,14 @@ def _manifest_hash(manifest: Dict[str, object], key: str) -> str:
     return normalized if _HASH_RE.fullmatch(normalized) else ""
 
 
+def _normalize_manifest_path(value: object) -> str:
+    """Compare legacy Windows manifests using canonical POSIX separators."""
+    return str(value or "").replace("\\", "/")
+
+
 def _relative_path(root: Path, path: Path) -> str:
     try:
-        return str(path.relative_to(root))
+        return path.relative_to(root).as_posix()
     except ValueError:
         return ""
 
