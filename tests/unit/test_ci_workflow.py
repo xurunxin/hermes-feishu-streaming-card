@@ -132,7 +132,8 @@ def test_release_package_reruns_full_gate_after_exact_checkout():
     assert len(verifier_positions) == 2
     assert checkout_index < verifier_positions[0] < build_index
     assert build_index < verifier_positions[1] < upload_index
-    assert package.count("--require-main-ancestor") == 2
+    assert "--require-ancestor-ref" in package
+    assert package.count("--require-ancestor-ref") == 2
 
 
 def test_release_dispatch_accepts_only_full_semver_tag_ref():
@@ -143,6 +144,9 @@ def test_release_dispatch_accepts_only_full_semver_tag_ref():
     assert "tag_ref:" in text
     assert "^refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$" in text
     assert 'tag="${tag_ref#refs/tags/}"' in text
+    assert "base_ref:" in text
+    assert "safe-v4.2.5" in text
+    assert "--require-ancestor-ref" in text
 
 
 def test_docker_compose_example_documents_container_paths():

@@ -1,4 +1,4 @@
-# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.5.post1)
+# Hermes Feishu Streaming Card Plugin (Safe Fork 4.2.6)
 
 [中文](README.md) | [English](README.en.md)
 <p align="center">
@@ -56,10 +56,10 @@ During execution, the Header follows real Hermes tool actions while public inter
 Install from your GitHub fork's local working tree; do not execute a remote script:
 
 ```bash
-git clone https://github.com/xurunxin/hermes-feishu-streaming-card.git
+git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card
 python -m pip wheel --no-deps -w dist .
-python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.5.post1-py3-none-any.whl
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.6-py3-none-any.whl
 ```
 
 Then use the Hermes runtime Python for the integrated installer. On Windows, use the Hermes venv's `Scripts/python.exe`, not system Python:
@@ -140,7 +140,7 @@ For an existing Hermes container:
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.5
+export HFC_VERSION=v4.2.6
 bash install-docker.sh
 ```
 
@@ -180,6 +180,7 @@ High-frequency stream tuning usually needs no change. For DeepSeek burst, token-
 ![Feishu topic reply card continuity and reasoning/tool timeline showcase](docs/assets/feishu-topic-card-showcase-v389.png)
 | Version | Highlights |
 |---|---|
+| [v4.2.6](docs/release-notes-v4.2.6.en.md) | Safe-fork installer fix: Bash, PowerShell, and Docker default to the user's fork, `latest` pins the user's formal release, and cross-platform installer packages are published |
 | [v4.2.5](docs/release-notes-v4.2.5.en.md) | Audit safety hotfix for canonical turn isolation, maintenance ownership/checkout/drain recovery, executable doctor actions, pinned stable-tag installs, and an exact tested annotated-tag release gate |
 | [v4.2.4](docs/release-notes-v4.2.4.en.md) | Fixes consecutive Feishu/Lark topic replies quoting the same message overwriting the first reply card; every new message opens an independent card while in-turn streaming still resolves through the reply alias |
 | [v4.2.3](docs/release-notes-v4.2.3.en.md) | Preserves `update_evidence_fingerprint` when the WebSocket hook forwards `/update` actions, allowing the sidecar to complete evidence-bound confirm/cancel transitions while missing or mismatched evidence remains fail-closed |

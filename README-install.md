@@ -260,7 +260,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | Variable | Default | Description |
 |---|---|---|
 | `HFC_VERSION` | `latest` | Git tag or branch to install, such as `v3.10.0`, `v3.9.1`, `v3.8.18`, `v3.6.6`, or `main`. |
-| `HFC_REPO` | `baileyh8/hermes-feishu-streaming-card` | GitHub repository to install from. |
+| `HFC_REPO` | `xurunxin/hermes-feishu-streaming-card` | GitHub repository to install from. |
 | `HERMES_DIR` | `~/.hermes/hermes-agent` | Hermes Agent root directory. |
 | `HFC_PYTHON` | Hermes venv, then `PYTHON`/`python3` fallback | Explicit Python interpreter override. |
 | `HFC_PIP_USER` | automatic | Hermes venv installs omit `--user`; system Python uses `--user`. Set `0` or `--user` only to override. |
@@ -289,7 +289,7 @@ a privileged container, or mount host system-service directories.
 ```
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.5
+export HFC_VERSION=v4.2.6
 bash install-docker.sh
 ```
 
@@ -315,13 +315,13 @@ candidate workflow completes.
 macOS / Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.ps1 | iex
 ```
 
 ## After Install

@@ -1,6 +1,6 @@
 # Hermes 飞书流式卡片插件（Safe Fork）
 
-> This local fork is derived from upstream `v4.2.5` as `4.2.5.post1`. The independent maintenance updater, remote installer guidance, Windows ctypes process/file helpers, and maintenance admission hook were removed to reduce antivirus false-positive surface. It is intentionally a manual-update sidecar; review `docs/safe-fork.md` before deployment.
+> This local fork is derived from upstream `v4.2.5` and published as the safe `4.2.6` release. The independent maintenance updater, remote installer guidance, Windows ctypes process/file helpers, and maintenance admission hook were removed to reduce antivirus false-positive surface. It is intentionally a manual-update sidecar; review `docs/safe-fork.md` before deployment.
 
 
 [中文](README.md) | [English](README.en.md)
@@ -59,10 +59,10 @@ Hermes 飞书流式卡片插件把 Hermes Agent Gateway 的飞书/Lark 回复变
 从你的 GitHub Fork 本地工作树安装（不执行远程脚本）：
 
 ```bash
-git clone https://github.com/xurunxin/hermes-feishu-streaming-card.git
+git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card
 python -m pip wheel --no-deps -w dist .
-python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.5.post1-py3-none-any.whl
+python -m pip install --no-deps --force-reinstall dist/hermes_feishu_streaming_card-4.2.6-py3-none-any.whl
 ```
 
 然后使用 Hermes runtime Python 调用整合安装器。Windows 请使用 Hermes venv 中的 `Scripts/python.exe`，不要使用系统 Python：
@@ -142,7 +142,7 @@ Hermes `v2026.4.23` 起的旧版和 Hermes 0.13.0+/0.14.0/0.15.x/0.17.x/0.18.x/0
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.5
+export HFC_VERSION=v4.2.6
 bash install-docker.sh
 ```
 
@@ -182,6 +182,7 @@ bash install-docker.sh
 ![飞书话题内卡片连续更新与思考工具 timeline 展示](docs/assets/feishu-topic-card-showcase-v389.png)
 | 版本 | 重点 |
 |---|---|
+| [v4.2.6](docs/release-notes-v4.2.6.md) | 安全 fork 安装修复：Bash、PowerShell、Docker 默认指向用户 fork，`latest` 固定到用户 fork 的正式 release，并发布跨平台安装包 |
 | [v4.2.5](docs/release-notes-v4.2.5.md) | 审查安全热修：canonical turn 隔离、maintenance owner/checkout/drain 恢复、可执行 doctor 建议、固定 stable-tag 安装，以及 exact tested annotated-tag 发布门禁 |
 | [v4.2.4](docs/release-notes-v4.2.4.md) | 修复飞书/Lark 话题中连续引用同一消息时复用旧 session、覆盖首张回复卡的问题；每条新消息创建独立卡片，同一轮流式更新仍通过 reply alias 关联 |
 | [v4.2.3](docs/release-notes-v4.2.3.md) | 修复 WebSocket hook 转发 `/update` 按钮动作时遗漏 `update_evidence_fingerprint` 的问题，使 sidecar 能完成证据绑定的确认/取消状态转换；缺失或不匹配证据仍 fail-closed |

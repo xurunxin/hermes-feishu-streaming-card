@@ -121,6 +121,7 @@ def run_release_installer(
     return result, tmp_path / "python.log", tmp_path / "curl.log", data_dir / "state"
 
 
+@pytest.mark.posix_only
 def test_install_sh_prefers_hermes_venv_python(tmp_path):
     hermes_dir = tmp_path / "hermes-agent"
     env_file = tmp_path / ".env"
@@ -185,6 +186,7 @@ exit 0
     assert not system_marker.exists()
 
 
+@pytest.mark.posix_only
 def test_install_sh_latest_resolves_release_tag_and_pins_spec(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -195,7 +197,7 @@ def test_install_sh_latest_resolves_release_tag_and_pins_spec(tmp_path):
 
     assert result.returncode == 0, result.stderr + result.stdout
     log = python_log.read_text(encoding="utf-8")
-    spec = "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@v4.2.4"
+    spec = "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@v4.2.4"
     assert f"-m pip install --upgrade {spec}" in log
     assert curl_log.read_text(encoding="utf-8").count("releases/latest") == 1
 
@@ -207,6 +209,7 @@ def test_install_sh_latest_resolves_release_tag_and_pins_spec(tmp_path):
         ("429", "0", "latest release lookup returned HTTP 429"),
     ],
 )
+@pytest.mark.posix_only
 def test_install_sh_latest_fails_closed_on_api_error(
     tmp_path,
     http_status,
@@ -228,6 +231,7 @@ def test_install_sh_latest_fails_closed_on_api_error(
     assert "hermes_feishu_card.cli" not in log
 
 
+@pytest.mark.posix_only
 def test_install_sh_latest_fails_closed_on_rate_limit(tmp_path):
     result, python_log, _curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -243,6 +247,7 @@ def test_install_sh_latest_fails_closed_on_rate_limit(tmp_path):
     assert "hermes_feishu_card.cli" not in log
 
 
+@pytest.mark.posix_only
 def test_install_sh_latest_rejects_malformed_release_json(tmp_path):
     result, python_log, _curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -258,6 +263,7 @@ def test_install_sh_latest_rejects_malformed_release_json(tmp_path):
     assert "hermes_feishu_card.cli" not in log
 
 
+@pytest.mark.posix_only
 def test_install_sh_explicit_ref_bypasses_release_api(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -267,11 +273,12 @@ def test_install_sh_explicit_ref_bypasses_release_api(tmp_path):
 
     assert result.returncode == 0, result.stderr + result.stdout
     log = python_log.read_text(encoding="utf-8")
-    spec = "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@main"
+    spec = "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@main"
     assert f"-m pip install --upgrade {spec}" in log
     assert not curl_log.exists()
 
 
+@pytest.mark.posix_only
 def test_install_sh_reads_dotenv_without_sourcing_unknown_keys(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -296,7 +303,7 @@ if [ "$1" = "-m" ] && [ "$2" = "ensurepip" ]; then
   exit 0
 fi
 if [ "$1" = "-m" ] && [ "$2" = "hermes_feishu_card.cli" ]; then
-  if [ "${HFC_INSTALL_SPEC:-}" != "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@main" ]; then
+  if [ "${HFC_INSTALL_SPEC:-}" != "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@main" ]; then
     echo "HFC_INSTALL_SPEC was not exported" >&2
     exit 4
   fi
@@ -348,6 +355,7 @@ exit 0
     )
 
 
+@pytest.mark.posix_only
 def test_install_sh_retries_externally_managed_python(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -413,6 +421,7 @@ exit 0
     )
 
 
+@pytest.mark.posix_only
 def test_install_sh_stops_when_pip_install_fails(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -474,6 +483,7 @@ exit 0
     assert not (tmp_path / "setup-ran").exists()
 
 
+@pytest.mark.posix_only
 def test_install_sh_suppresses_pip_root_user_warning(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -573,6 +583,7 @@ exit 0
         (r"abc\ndef", r"abc\ndef"),
     ],
 )
+@pytest.mark.posix_only
 def test_install_docker_sh_keeps_env_secret_literal_backslashes(
     tmp_path, raw_secret, expected_secret
 ):
@@ -645,7 +656,7 @@ exit 0
 
     assert result.returncode == 0, result.stderr + result.stdout
     log = (tmp_path / "python.log").read_text(encoding="utf-8")
-    assert "-m pip install --upgrade git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@main" in log
+    assert "-m pip install --upgrade git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@main" in log
 
 
 def make_fake_system_python(path: Path, marker: Path) -> Path:
@@ -662,6 +673,7 @@ exit 99
     return path
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_declares_container_defaults():
     script_path = ROOT / "install-docker.sh"
     script = script_path.read_text(encoding="utf-8")
@@ -676,6 +688,7 @@ def test_install_docker_sh_declares_container_defaults():
     assert 'STATE_DIR="${STATE_DIR:-$(dirname "$CONFIG_PATH")/state}"' in script
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_explicit_local_source_allows_credential_free_smoke(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -726,6 +739,7 @@ def test_install_docker_sh_explicit_local_source_allows_credential_free_smoke(tm
     assert "hermes_feishu_card.cli setup" not in log
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_noop_smoke_refuses_remote_install_source(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -766,6 +780,7 @@ def test_install_docker_sh_noop_smoke_refuses_remote_install_source(tmp_path):
     assert "HFC_TEST_NOOP_DELIVERY requires HFC_INSTALL_SOURCE" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_local_source_alone_does_not_bypass_credentials(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -806,6 +821,7 @@ def test_install_docker_sh_local_source_alone_does_not_bypass_credentials(tmp_pa
     assert "FEISHU_APP_ID/FEISHU_APP_SECRET are missing" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_noop_smoke_rejects_relative_source(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -844,6 +860,7 @@ def test_install_docker_sh_noop_smoke_rejects_relative_source(tmp_path):
     assert "HFC_INSTALL_SOURCE must be an absolute local directory" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_noop_smoke_rejects_symlink_source(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
@@ -871,6 +888,7 @@ def test_install_docker_sh_noop_smoke_rejects_symlink_source(tmp_path):
     assert "HFC_INSTALL_SOURCE must not be a symlink" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_noop_smoke_requires_skip_start():
     env = os.environ.copy()
     env.update(
@@ -894,6 +912,7 @@ def test_install_docker_sh_noop_smoke_requires_skip_start():
     assert "HFC_TEST_NOOP_DELIVERY requires HFC_SKIP_START=1" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_makes_shared_state_private(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -998,6 +1017,7 @@ def test_docker_compose_uses_ordinary_setup_gateway_and_sidecar_processes():
         assert forbidden not in lowered
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_uses_container_defaults_and_hermes_venv(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -1043,7 +1063,7 @@ def test_install_docker_sh_uses_container_defaults_and_hermes_venv(tmp_path):
     assert result.returncode == 0, result.stderr + result.stdout
     log = (tmp_path / "python.log").read_text(encoding="utf-8")
     assert str(runtime_python) in result.stdout
-    assert "-m pip install --upgrade git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@v3.7.0" in log
+    assert "-m pip install --upgrade git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@v3.7.0" in log
     doctor_cmd = f"hermes_feishu_card.cli doctor --config {data_dir / 'config.yaml'} --hermes-dir {hermes_dir} --profile-id default --explain"
     setup_cmd = (
         f"hermes_feishu_card.cli setup --hermes-dir {hermes_dir} "
@@ -1057,6 +1077,7 @@ def test_install_docker_sh_uses_container_defaults_and_hermes_venv(tmp_path):
     assert not system_python_marker.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_prefers_hermes_venv_python3(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -1108,6 +1129,7 @@ def test_install_docker_sh_prefers_hermes_venv_python3(tmp_path):
     assert not system_python_marker.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_latest_resolves_to_pinned_release_tag(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -1117,11 +1139,12 @@ def test_install_docker_sh_latest_resolves_to_pinned_release_tag(tmp_path):
     )
     assert result.returncode == 0, result.stderr + result.stdout
     log = python_log.read_text(encoding="utf-8")
-    spec = "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@v4.2.4"
+    spec = "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@v4.2.4"
     assert f"-m pip install --upgrade {spec}" in log
     assert curl_log.read_text(encoding="utf-8").count("releases/latest") == 1
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_latest_fails_closed_without_running_pip_or_setup(
     tmp_path,
 ):
@@ -1140,6 +1163,7 @@ def test_install_docker_sh_latest_fails_closed_without_running_pip_or_setup(
     assert not state_dir.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_explicit_release_stays_pinned_without_api(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -1148,13 +1172,14 @@ def test_install_docker_sh_explicit_release_stays_pinned_without_api(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    spec = "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@v4.2.4"
+    spec = "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@v4.2.4"
     assert f"-m pip install --upgrade {spec}" in python_log.read_text(
         encoding="utf-8"
     )
     assert not curl_log.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_explicit_main_uses_named_moving_ref(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -1163,13 +1188,14 @@ def test_install_docker_sh_explicit_main_uses_named_moving_ref(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    spec = "git+https://github.com/baileyh8/hermes-feishu-streaming-card.git@main"
+    spec = "git+https://github.com/xurunxin/hermes-feishu-streaming-card.git@main"
     assert f"-m pip install --upgrade {spec}" in python_log.read_text(
         encoding="utf-8"
     )
     assert not curl_log.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_local_source_bypasses_release_resolution(tmp_path):
     result, python_log, curl_log, _state_dir = run_release_installer(
         tmp_path,
@@ -1185,6 +1211,7 @@ def test_install_docker_sh_local_source_bypasses_release_resolution(tmp_path):
     assert not curl_log.exists()
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_retries_externally_managed_python(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -1327,6 +1354,7 @@ exit 0
     return result, setup_marker, tmp_path / "python.log"
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_stops_when_pip_install_fails(tmp_path):
     result, setup_marker, python_log = run_install_docker_with_failing_pip(
         tmp_path, failure_mode="ordinary"
@@ -1338,6 +1366,7 @@ def test_install_docker_sh_stops_when_pip_install_fails(tmp_path):
     assert "hermes_feishu_card.cli" not in python_log.read_text(encoding="utf-8")
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_stops_when_externally_managed_retry_fails(tmp_path):
     result, setup_marker, python_log = run_install_docker_with_failing_pip(
         tmp_path, failure_mode="externally"
@@ -1352,6 +1381,7 @@ def test_install_docker_sh_stops_when_externally_managed_retry_fails(tmp_path):
     assert "hermes_feishu_card.cli" not in log
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_fails_without_hermes_venv_python(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -1394,6 +1424,7 @@ def test_install_docker_sh_fails_without_hermes_venv_python(tmp_path):
     assert "HFC_PYTHON" in result.stderr
 
 
+@pytest.mark.posix_only
 def test_install_docker_sh_fails_without_noninteractive_credentials(tmp_path):
     hermes_dir = tmp_path / "opt" / "hermes"
     data_dir = tmp_path / "opt" / "data"
@@ -1447,6 +1478,7 @@ exit 0
     return path
 
 
+@pytest.mark.posix_only
 @pytest.mark.parametrize("script_name", ["install.sh", "install-docker.sh"])
 @pytest.mark.parametrize("source", ["args", "process", "env_file"])
 def test_installers_resolve_profile_arguments_with_shared_precedence(

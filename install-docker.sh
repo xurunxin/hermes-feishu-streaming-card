@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${HFC_REPO:-baileyh8/hermes-feishu-streaming-card}"
+REPO="${HFC_REPO:-xurunxin/hermes-feishu-streaming-card}"
 VERSION="${HFC_VERSION:-}"
 HERMES_DIR="${HERMES_DIR:-/opt/hermes}"
 CONFIG_PATH="${HFC_CONFIG:-}"

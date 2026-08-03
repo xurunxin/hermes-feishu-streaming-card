@@ -100,6 +100,7 @@ def verify_release_tag(
     tag: str,
     expected_commit: str,
     require_main_ancestor: bool,
+    ancestor_ref: str = "",
 ) -> None:
     verify_release_metadata(root, tag)
     normalized_commit = str(expected_commit or "").lower()
@@ -111,13 +112,14 @@ def verify_release_tag(
     tagged_commit = resolve_annotated_tag_commit(root, tag)
     if tagged_commit != normalized_commit:
         raise ReleaseGateError("tag_commit_mismatch")
-    if require_main_ancestor:
+    if require_main_ancestor or ancestor_ref:
+        base_ref = ancestor_ref or "origin/main"
         ancestry = _git(
             root,
             "merge-base",
             "--is-ancestor",
             normalized_commit,
-            "origin/main",
+            base_ref,
             check=False,
         )
         if ancestry.returncode != 0:
@@ -142,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--expected-commit", default="")
     parser.add_argument("--require-main-ancestor", action="store_true")
+    parser.add_argument("--require-ancestor-ref", default="")
     parser.add_argument("--metadata-only", action="store_true")
     args = parser.parse_args(argv)
     root = Path(__file__).resolve().parents[1]
@@ -155,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.tag,
                 args.expected_commit,
                 args.require_main_ancestor,
+                args.require_ancestor_ref,
             )
             print(f"release gate ok: {args.tag} -> {args.expected_commit.lower()}")
     except ReleaseGateError as exc:

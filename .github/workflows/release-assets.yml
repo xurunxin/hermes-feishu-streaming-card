@@ -7,8 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag_ref:
-        description: "Full annotated release tag ref, for example refs/tags/v4.2.5"
+        description: "Full annotated release tag ref, for example refs/tags/v4.2.6"
         required: true
+        type: string
+      base_ref:
+        description: "Branch that must contain the release commit"
+        required: false
+        default: safe-v4.2.5
         type: string
 
 permissions:
@@ -22,6 +27,7 @@ jobs:
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       commit: ${{ steps.resolve.outputs.commit }}
+      base_ref: ${{ steps.resolve.outputs.base_ref }}
 
     steps:
       - name: Checkout resolver
@@ -35,19 +41,26 @@ jobs:
         shell: bash
         env:
           DISPATCH_TAG_REF: ${{ inputs.tag_ref }}
+          DISPATCH_BASE_REF: ${{ inputs.base_ref }}
         run: |
           set -euo pipefail
           tag_ref="$GITHUB_REF"
+          base_ref="safe-v4.2.5"
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             tag_ref="$DISPATCH_TAG_REF"
+            base_ref="${DISPATCH_BASE_REF:-safe-v4.2.5}"
           fi
           [[ "$tag_ref" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
             echo "release gate failed: invalid_tag_ref" >&2
             exit 2
           }
+          [[ "$base_ref" =~ ^[A-Za-z0-9._/-]+$ ]] && [[ "$base_ref" != *..* ]] || {
+            echo "release gate failed: invalid_base_ref" >&2
+            exit 2
+          }
           tag="${tag_ref#refs/tags/}"
           git fetch --force origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/$base_ref:refs/remotes/origin/$base_ref" \
             "+$tag_ref:$tag_ref"
           [ "$(git cat-file -t "$tag_ref")" = "tag" ] || {
             echo "release gate failed: tag_not_annotated" >&2
@@ -62,8 +75,8 @@ jobs:
           python scripts/verify_release.py \
             --tag "$tag" \
             --expected-commit "$commit" \
-            --require-main-ancestor
-          printf 'tag=%s\ncommit=%s\n' "$tag" "$commit" >> "$GITHUB_OUTPUT"
+            --require-ancestor-ref "origin/$base_ref"
+          printf 'tag=%s\ncommit=%s\nbase_ref=%s\n' "$tag" "$commit" "$base_ref" >> "$GITHUB_OUTPUT"
 
   release-gate:
     needs: resolve-release
@@ -91,16 +104,17 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
           RELEASE_COMMIT: ${{ needs.resolve-release.outputs.commit }}
+          RELEASE_BASE_REF: ${{ needs.resolve-release.outputs.base_ref }}
         run: |
           set -euo pipefail
           git fetch --force origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/$RELEASE_BASE_REF:refs/remotes/origin/$RELEASE_BASE_REF" \
             "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           git checkout --detach "$RELEASE_COMMIT"
           python scripts/verify_release.py \
             --tag "$RELEASE_TAG" \
             --expected-commit "$RELEASE_COMMIT" \
-            --require-main-ancestor
+            --require-ancestor-ref "origin/$RELEASE_BASE_REF"
 
       - name: Build install packages
         shell: bash
@@ -134,16 +148,17 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
           RELEASE_COMMIT: ${{ needs.resolve-release.outputs.commit }}
+          RELEASE_BASE_REF: ${{ needs.resolve-release.outputs.base_ref }}
         run: |
           set -euo pipefail
           git fetch --force origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/$RELEASE_BASE_REF:refs/remotes/origin/$RELEASE_BASE_REF" \
             "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT"
           python scripts/verify_release.py \
             --tag "$RELEASE_TAG" \
             --expected-commit "$RELEASE_COMMIT" \
-            --require-main-ancestor
+            --require-ancestor-ref "origin/$RELEASE_BASE_REF"
 
       - name: Upload release assets
         env:

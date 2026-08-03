@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Repo = if ($env:HFC_REPO) { $env:HFC_REPO } else { "baileyh8/hermes-feishu-streaming-card" }
+$Repo = if ($env:HFC_REPO) { $env:HFC_REPO } else { "xurunxin/hermes-feishu-streaming-card" }
 $HermesDir = if ($env:HERMES_DIR) { $env:HERMES_DIR } else { Join-Path $HOME ".hermes/hermes-agent" }
 $PythonBin = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 $PipUserFlag = if ($env:HFC_PIP_USER) { $env:HFC_PIP_USER } else { "--user" }

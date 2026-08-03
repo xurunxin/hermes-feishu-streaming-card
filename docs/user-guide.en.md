@@ -434,13 +434,13 @@ Full release notes: [docs/release-notes-v3.6.0.md](release-notes-v3.6.0.md).
 macOS / Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/xurunxin/hermes-feishu-streaming-card/v4.2.6/install.ps1 | iex
 ```
 
 The installer installs or upgrades the package, reads or prompts for Feishu credentials, writes `~/.hermes/.env`, and runs the integrated setup command:
@@ -496,14 +496,14 @@ Use `install-docker.sh` inside an existing Hermes container. It defaults to
 script selects Hermes venv Python and does not fall back to system Python unless
 `HFC_PYTHON` is set.
 
-The Compose example defaults `HFC_VERSION` to `v4.2.5`.
+The Compose example defaults `HFC_VERSION` to `v4.2.6`.
 
 Example:
 
 ```bash
 export FEISHU_APP_ID=cli_xxx
 export FEISHU_APP_SECRET=xxx
-export HFC_VERSION=v4.2.5
+export HFC_VERSION=v4.2.6
 bash install-docker.sh --profile-id child --event-url http://hfc-sidecar:8765/events
 ```
 
@@ -512,7 +512,7 @@ GitHub Releases also include `hermes-feishu-card-<version>-macos.tar.gz`, `herme
 ## Manual Install
 
 ```bash
-git clone https://github.com/baileyh8/hermes-feishu-streaming-card.git
+git clone --branch v4.2.6 https://github.com/xurunxin/hermes-feishu-streaming-card.git
 cd hermes-feishu-streaming-card && pip install -e ".[test]"
 export FEISHU_APP_ID=cli_xxx FEISHU_APP_SECRET=xxx
 python3 -m hermes_feishu_card.cli setup --hermes-dir ~/.hermes/hermes-agent --yes
