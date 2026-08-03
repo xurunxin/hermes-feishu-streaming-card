@@ -42,6 +42,27 @@ The default command runs the portable/common suite and reports platform skips ex
 python -m pytest -q
 ```
 
+On native Windows, the explicit commands are:
+
+```text
+python -m pytest -m "not posix_only" -q
+python -m pytest -m windows_only -q
+```
+
+For WSL, use a Linux checkout and Linux virtual environment. Do not point WSL at a Windows `.venv` or rely on the Windows AppData working tree:
+
+```bash
+git clone --branch safe-v4.2.5 --depth 1 \
+  https://github.com/xurunxin/hermes-feishu-streaming-card.git \
+  ~/src/hermes-feishu-streaming-card
+cd ~/src/hermes-feishu-streaming-card
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pytest -m posix_only -q
+```
+
+If the Ubuntu image does not include `venv`/`pip`, install the distro packages first (`sudo apt-get install python3-venv python3-pip`).
+
 Windows sidecar lifecycle coverage remains in `tests/integration/test_cli_process.py`; portable recovery/install coverage remains in the integration suites and is not replaced by the POSIX marker.
 
 ## Installation source
