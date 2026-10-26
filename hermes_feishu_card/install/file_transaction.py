@@ -10,7 +10,6 @@ import hashlib
 import os
 from pathlib import Path
 import stat
-from typing import cast
 
 _RestoreIdentity = tuple[int, int]
 _RestoreEvidenceSnapshot = tuple[int, int, str]
@@ -419,55 +418,6 @@ def _verify_portable_exclusive_bytes(
 
 
 def _open_portable_exclusive_fd(path: Path, *, create: bool) -> int:
-    if os.name == "nt":
-        import ctypes
-        import msvcrt
-        from ctypes import wintypes
-
-        # These exports exist only in CPython's Windows modules. Host stubs on
-        # the non-Windows quality runner omit them; the platform gate is real.
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
-        create_file = kernel32.CreateFileW
-        create_file.argtypes = (
-            wintypes.LPCWSTR,
-            wintypes.DWORD,
-            wintypes.DWORD,
-            wintypes.LPVOID,
-            wintypes.DWORD,
-            wintypes.DWORD,
-            wintypes.HANDLE,
-        )
-        create_file.restype = wintypes.HANDLE
-        close_handle = kernel32.CloseHandle
-        close_handle.argtypes = (wintypes.HANDLE,)
-        close_handle.restype = wintypes.BOOL
-
-        generic_read = 0x80000000
-        generic_write = 0x40000000
-        create_new = 1
-        open_existing = 3
-        file_attribute_normal = 0x00000080
-        file_flag_open_reparse_point = 0x00200000
-        handle = create_file(
-            str(path),
-            generic_read | generic_write,
-            0,
-            None,
-            create_new if create else open_existing,
-            file_attribute_normal | file_flag_open_reparse_point,
-            None,
-        )
-        if handle == ctypes.c_void_p(-1).value:
-            raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
-        try:
-            return cast(int, msvcrt.open_osfhandle(  # type: ignore[attr-defined]
-                handle,
-                os.O_RDWR | BINARY_FLAG,
-            ))
-        except Exception:
-            close_handle(handle)
-            raise
-
     flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0) | BINARY_FLAG
     if create:
         flags |= os.O_CREAT | os.O_EXCL
@@ -484,89 +434,6 @@ def _open_portable_exclusive_fd(path: Path, *, create: bool) -> int:
         raise
 
 
-def _open_portable_delete_fd(path: Path) -> int:
-    """Open a verified Windows file exclusively for read-and-delete."""
-    if os.name != "nt":
-        raise ValueError("portable deletion requires Windows")
-    import ctypes
-    import msvcrt
-    from ctypes import wintypes
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
-    create_file = kernel32.CreateFileW
-    create_file.argtypes = (
-        wintypes.LPCWSTR,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.LPVOID,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.HANDLE,
-    )
-    create_file.restype = wintypes.HANDLE
-    close_handle = kernel32.CloseHandle
-    close_handle.argtypes = (wintypes.HANDLE,)
-    close_handle.restype = wintypes.BOOL
-
-    generic_read = 0x80000000
-    delete = 0x00010000
-    open_existing = 3
-    file_attribute_normal = 0x00000080
-    file_flag_open_reparse_point = 0x00200000
-    handle = create_file(
-        str(path),
-        generic_read | delete,
-        0,
-        None,
-        open_existing,
-        file_attribute_normal | file_flag_open_reparse_point,
-        None,
-    )
-    if handle == ctypes.c_void_p(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
-    try:
-        return cast(
-            int,
-            msvcrt.open_osfhandle(  # type: ignore[attr-defined]
-                handle,
-                os.O_RDONLY | BINARY_FLAG,
-            ),
-        )
-    except Exception:
-        close_handle(handle)
-        raise
-
-
-def _set_portable_delete(fd: int, enabled: bool) -> None:
-    if os.name != "nt":
-        raise ValueError("portable deletion requires Windows")
-    import ctypes
-    import msvcrt
-    from ctypes import wintypes
-
-    class _FileDispositionInfo(ctypes.Structure):
-        _fields_ = [("DeleteFile", wintypes.BOOL)]
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
-    set_info = kernel32.SetFileInformationByHandle
-    set_info.argtypes = (
-        wintypes.HANDLE,
-        ctypes.c_int,
-        ctypes.c_void_p,
-        wintypes.DWORD,
-    )
-    set_info.restype = wintypes.BOOL
-    disposition = _FileDispositionInfo(DeleteFile=bool(enabled))
-    handle = msvcrt.get_osfhandle(fd)  # type: ignore[attr-defined]
-    if not set_info(
-        handle,
-        4,  # FileDispositionInfo
-        ctypes.byref(disposition),
-        ctypes.sizeof(disposition),
-    ):
-        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
-
-
 def _remove_targets_portably(
     paths: list[Path],
     *,
@@ -574,135 +441,11 @@ def _remove_targets_portably(
     expected_directories: dict[Path, _RestoreIdentity | None],
     recovery_contents: dict[Path, str] | None = None,
 ) -> None:
-    """Delete only the exact verified files on Windows, with all handles bound first.
-
-    Every target is opened without sharing and re-read before any disposition is
-    set. The handle owns both the identity check and deletion, so a path swap
-    cannot redirect cleanup to a replacement file. If closing a bound handle
-    fails after an earlier target was deleted, ``recovery_contents`` restores the
-    exact family evidence before the error is returned.
-    """
-    if os.name != "nt":
-        raise ValueError("portable deletion requires Windows")
-    if not paths or len(paths) != len(set(paths)):
-        raise ValueError("portable deletion targets are invalid")
-    if recovery_contents is not None and set(recovery_contents) != set(paths):
-        raise ValueError("portable deletion recovery evidence is incomplete")
-    selected = {path: expected_identities.get(path) for path in paths}
-    _assert_restore_evidence_set_unchanged(selected)
-    descriptors: dict[Path, int] = {}
-    marked: list[Path] = []
-    failure: Exception | None = None
-    try:
-        for path in paths:
-            _assert_restore_directory_ancestry_unchanged(path, expected_directories)
-            expected = selected[path]
-            if expected is None:
-                try:
-                    path.lstat()
-                except FileNotFoundError:
-                    continue
-                raise ValueError("refusing to remove changed restore evidence")
-            fd = _open_portable_delete_fd(path)
-            descriptors[path] = fd
-            opened = os.fstat(fd)
-            current = path.lstat()
-            if (
-                not stat.S_ISREG(opened.st_mode)
-                or stat.S_ISLNK(current.st_mode)
-                or _is_reparse(current)
-                or not stat.S_ISREG(current.st_mode)
-                or (opened.st_dev, opened.st_ino) != expected[:2]
-                or (current.st_dev, current.st_ino) != expected[:2]
-            ):
-                raise ValueError("refusing to remove changed restore evidence")
-            os.lseek(fd, 0, os.SEEK_SET)
-            payload = bytearray()
-            while True:
-                chunk = os.read(fd, 1024 * 1024)
-                if not chunk:
-                    break
-                payload.extend(chunk)
-            contents = bytes(payload).decode("utf-8")
-            if _restore_text_sha256(contents) != expected[2]:
-                raise ValueError("refusing to remove changed restore evidence")
-        # Every target is now held with share mode 0. Re-opening them here
-        # would fail with a Windows sharing violation; verify the bound
-        # descriptors and directory identities without acquiring new handles.
-        for path, fd in descriptors.items():
-            _assert_restore_directory_ancestry_unchanged(path, expected_directories)
-            expected = selected[path]
-            if expected is None:
-                raise ValueError("refusing to remove changed restore evidence")
-            opened = os.fstat(fd)
-            current = path.lstat()
-            if (
-                not stat.S_ISREG(opened.st_mode)
-                or stat.S_ISLNK(current.st_mode)
-                or _is_reparse(current)
-                or not stat.S_ISREG(current.st_mode)
-                or (opened.st_dev, opened.st_ino) != expected[:2]
-                or (current.st_dev, current.st_ino) != expected[:2]
-            ):
-                raise ValueError("refusing to remove changed restore evidence")
-        for path in paths:
-            _assert_restore_directory_ancestry_unchanged(path, expected_directories)
-            delete_fd = descriptors.get(path)
-            if delete_fd is None:
-                continue
-            _set_portable_delete(delete_fd, True)
-            marked.append(path)
-    except (OSError, UnicodeError, ValueError) as exc:
-        failure = exc
-
-    unmark_error: OSError | None = None
-    if failure is not None:
-        for path in reversed(marked):
-            delete_fd = descriptors.get(path)
-            if delete_fd is None:
-                continue
-            try:
-                _set_portable_delete(delete_fd, False)
-            except OSError as exc:
-                unmark_error = unmark_error or exc
-
-    close_error: OSError | None = None
-    for path, fd in list(descriptors.items()):
-        try:
-            os.close(fd)
-        except OSError as exc:
-            close_error = close_error or exc
-            try:
-                _set_portable_delete(fd, False)
-            except OSError as unmark_exc:
-                unmark_error = unmark_error or unmark_exc
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-        descriptors.pop(path, None)
-
-    if failure is not None or unmark_error is not None or close_error is not None:
-        repair_error = _restore_portable_evidence(
-            paths, selected, recovery_contents, expected_directories
-        )
-        if repair_error is not None:
-            raise ValueError(
-                "restore cleanup rollback failed; manual review required"
-            ) from repair_error
-        if failure is not None:
-            raise failure
-        raise ValueError(
-            "portable evidence deletion failed; original evidence restored"
-        ) from (unmark_error or close_error)
-
-    for path in paths:
-        _assert_restore_directory_ancestry_unchanged(path, expected_directories)
-        try:
-            path.lstat()
-        except FileNotFoundError:
-            continue
-        raise ValueError("portable deletion left changed evidence")
+    """Refuse deletion when the safe fork cannot bind it to verified handles."""
+    raise ValueError(
+        "safe fork cannot securely delete legacy Windows recovery evidence; "
+        "original files preserved"
+    )
 
 
 def _restore_portable_evidence(

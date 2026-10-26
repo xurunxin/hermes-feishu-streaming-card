@@ -112,20 +112,6 @@ from hermes_feishu_card.integrity import (
     build_runtime_integrity_fence_binding,
     sanitize_integrity_snapshot,
 )
-from hermes_feishu_card.maintenance_process import (
-    inspect_runtime,
-    launch_job,
-    provision_runtime,
-)
-from hermes_feishu_card.maintenance_store import (
-    MaintenanceRefused,
-    load_job,
-    load_verified_artifact,
-    maintenance_paths,
-    sanitize_job_environment,
-    stage_job_credentials,
-    stage_wheel_artifact,
-)
 from hermes_feishu_card.runtime_control import (
     acknowledge_runtime_integrity_review,
     inspect_runtime_integrity_review,
@@ -159,14 +145,12 @@ _CRON_MANIFEST_FIELDS = CRON_INSTALL_MANIFEST_FIELDS
 DEFAULT_EVENT_URL = "http://127.0.0.1:8765/events"
 PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 COMPOSE_HOST_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,62}$")
+LOCAL_INSTALL_GUIDANCE = "Install the verified local safe wheel manually."
 FEISHU_SDK_INSTALL_SPEC = "lark-oapi==1.6.8"
 FEISHU_SDK_REQUIRED_PARAMETER = "extra_ua_tags"
 RUNTIME_PROBE_TIMEOUT_SECONDS = 30
-OFFICIAL_INSTALLER_COMMAND = (
-    "bash <(curl -fsSL "
-    "https://raw.githubusercontent.com/baileyh8/"
-    "hermes-feishu-streaming-card/main/install.sh)"
-)
+# The SDK imports a large generated API tree; a cold Windows load can exceed 30s.
+FEISHU_SDK_PROBE_TIMEOUT_SECONDS = 120
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -197,8 +181,6 @@ def main(argv: list[str] | None = None) -> int:
         return _run_integrity(args)
     if args.command == "chats":
         return _run_chats(args)
-    if args.command == "maintenance":
-        return _run_maintenance(args)
     if args.command == "install":
         return _run_install(args)
     if args.command == "repair":
@@ -410,26 +392,6 @@ def _build_parser() -> argparse.ArgumentParser:
     chats_list = chat_subparsers.add_parser("list")
     chats_list.add_argument("--config", required=True)
 
-    maintenance = subparsers.add_parser(
-        "maintenance",
-        help="provision or inspect the independent Hermes update runtime",
-    )
-    maintenance_subparsers = maintenance.add_subparsers(dest="maintenance_command")
-    maintenance_provision = maintenance_subparsers.add_parser("provision")
-    maintenance_provision.add_argument("--hermes-dir", required=True)
-    maintenance_provision.add_argument("--hermes-home")
-    maintenance_provision.add_argument("--wheel", required=True)
-    maintenance_provision.add_argument("--root")
-    maintenance_status = maintenance_subparsers.add_parser("status")
-    maintenance_status.add_argument(
-        "--hermes-dir",
-        default=str(Path.home() / ".hermes" / "hermes-agent"),
-    )
-    maintenance_status.add_argument("--root")
-    maintenance_status.add_argument("--hermes-home")
-    for command in ("run", "resume"):
-        maintenance_run = maintenance_subparsers.add_parser(command)
-        maintenance_run.add_argument("--job", required=True)
     chats_list.add_argument("--profile-id")
 
     for command in ("install", "repair", "restore", "uninstall"):
@@ -561,10 +523,6 @@ def _run_setup(args: argparse.Namespace) -> int:
     if install_code != 0:
         return install_code
 
-    if setup_home is not None and setup_home != verified_hermes_root.resolve().parent:
-        print("maintenance: split HOME requires coordinated terminal updates")
-    else:
-        _provision_setup_maintenance(Path(args.hermes_dir).expanduser())
 
     try:
         runtime_python, runtime_identity = _resolve_sidecar_runtime_identity(
@@ -696,136 +654,8 @@ def _run_setup(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_maintenance(args: argparse.Namespace) -> int:
-    command = str(getattr(args, "maintenance_command", "") or "")
-    try:
-        if command == "provision":
-            paths = maintenance_paths(
-                Path(args.root).expanduser() if args.root else None
-            )
-            artifact = stage_wheel_artifact(
-                paths,
-                Path(args.wheel).expanduser(),
-                expected_version=PACKAGE_VERSION,
-                source_kind="cli_provision",
-            )
-            status = provision_runtime(
-                paths,
-                artifact,
-                hermes_root=Path(args.hermes_dir).expanduser(),
-            )
-            print(
-                "maintenance: "
-                + ("ready" if status.available else status.reason_code)
-            )
-            if status.available:
-                print(f"version: {status.package_version}")
-                print(f"python: {status.python_path}")
-                return 0
-            return 1
-        if command == "status":
-            paths = maintenance_paths(
-                Path(args.root).expanduser() if args.root else None
-            )
-            artifact = load_verified_artifact(
-                paths, expected_version=PACKAGE_VERSION
-            )
-            status = inspect_runtime(
-                paths,
-                artifact,
-                hermes_root=Path(args.hermes_dir).expanduser(),
-            )
-            print(
-                "maintenance: "
-                + ("ready" if status.available else status.reason_code)
-            )
-            print(f"version: {status.package_version or 'unavailable'}")
-            print(f"python: {status.python_path}")
-            return 0 if status.available else 1
-        if command in {"run", "resume"}:
-            job = load_job(Path(args.job).expanduser())
-            paths = maintenance_paths(job.path.parent.parent)
-            artifact = load_verified_artifact(
-                paths,
-                expected_version=job.artifact_version,
-            )
-            status = inspect_runtime(
-                paths,
-                artifact,
-                hermes_root=job.hermes_root,
-            )
-            if not status.available:
-                print(f"maintenance: unavailable ({status.reason_code})")
-                return 1
-            environment = sanitize_job_environment(os.environ)
-            if environment:
-                stage_job_credentials(
-                    paths,
-                    job_id=job.job_id,
-                    environment=environment,
-                )
-            launched = launch_job(status, job)
-            print(
-                "maintenance: "
-                + ("started" if launched.started else launched.reason_code)
-            )
-            print(f"manager: {launched.manager}")
-            return 0 if launched.started else 1
-    except (MaintenanceRefused, OSError, ValueError) as exc:
-        print(f"maintenance: unavailable ({exc})", file=sys.stderr)
-        return 1
-    print("maintenance command is required", file=sys.stderr)
-    return 2
 
 
-def _provision_setup_maintenance(hermes_root: Path) -> bool:
-    spec = _runtime_install_spec()
-    if not spec:
-        print("maintenance: unavailable (exact install spec missing)")
-        return False
-    try:
-        with tempfile.TemporaryDirectory(prefix="hfc-maintenance-wheel-") as temp:
-            destination = Path(temp)
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "wheel",
-                    "--no-deps",
-                    "--wheel-dir",
-                    str(destination),
-                    spec,
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-            wheels = sorted(destination.glob("*.whl"))
-            if completed.returncode != 0 or len(wheels) != 1:
-                print("maintenance: unavailable (wheel preparation failed)")
-                return False
-            paths = maintenance_paths()
-            artifact = stage_wheel_artifact(
-                paths,
-                wheels[0],
-                expected_version=PACKAGE_VERSION,
-                source_kind="setup_install_spec",
-            )
-            status = provision_runtime(
-                paths,
-                artifact,
-                hermes_root=hermes_root,
-            )
-            if not status.available:
-                print(f"maintenance: unavailable ({status.reason_code})")
-                return False
-            print("maintenance: ready")
-            return True
-    except (MaintenanceRefused, OSError, subprocess.SubprocessError, ValueError):
-        print("maintenance: unavailable (provisioning failed)")
-        return False
 
 
 def _has_feishu_credentials(
@@ -1059,7 +889,7 @@ def _run_doctor(args: argparse.Namespace) -> int:
             try:
                 if (config.get("service") or {}).get("hermes_home") is not None:
                     home_options["hermes_home"] = configured_hermes_home(detection.root, config)
-                    print("maintenance binding: explicit HOME; verify authenticated readiness after restart")
+                    print("instance binding: explicit HOME; verify authenticated readiness after restart")
             except ValueError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 1
@@ -1352,7 +1182,7 @@ def _build_doctor_report(
         if (config.get("service") or {}).get("hermes_home") is not None:
             home_options["hermes_home"] = configured_hermes_home(detection.root, config)
     except (ValueError, OSError):
-        report["maintenance_binding"] = {"status": "invalid", "runtime_verified": False}
+        report["instance_binding"] = {"status": "invalid", "runtime_verified": False}
         recommendations.append({"severity": "error", "code": "hermes_home_binding_invalid",
             "message": "The configured Hermes HOME cannot be verified.",
             "next_step": "Set service.hermes_home to the absolute process HOME containing config.yaml."})
@@ -1720,7 +1550,7 @@ def _check_runtime_feishu_sdk(runtime_python: Path) -> dict[str, Any]:
             check=False,
             capture_output=True,
             text=True,
-            timeout=RUNTIME_PROBE_TIMEOUT_SECONDS,
+            timeout=FEISHU_SDK_PROBE_TIMEOUT_SECONDS,
             cwd=str(cwd) if cwd is not None else None,
         )
     except subprocess.TimeoutExpired:
@@ -1859,20 +1689,20 @@ def _resolve_start_runtime_identity(
     if runtime_python is None:
         raise ValueError(
             "Sidecar runtime Python could not be verified. Rerun the official "
-            f"installer: {OFFICIAL_INSTALLER_COMMAND}"
+            f"installer: {LOCAL_INSTALL_GUIDANCE}"
         )
     report = _check_runtime_hook_import(runtime_python)
     if report.get("status") != "ok" or report.get("version") != PACKAGE_VERSION:
         raise ValueError(
             "Sidecar runtime package does not match this CLI release. Rerun the "
-            f"official installer: {OFFICIAL_INSTALLER_COMMAND}"
+            f"official installer: {LOCAL_INSTALL_GUIDANCE}"
         )
     if hermes_root is not None and not _runtime_report_uses_installed_package(
         report, runtime_python
     ):
         raise ValueError(
             "Hermes runtime package is not an isolated site-packages install. "
-            f"Rerun the official installer: {OFFICIAL_INSTALLER_COMMAND}"
+            f"Rerun the official installer: {LOCAL_INSTALL_GUIDANCE}"
         )
     return runtime_python, python_executable_identity(runtime_python)
 
@@ -2798,13 +2628,13 @@ def _print_sidecar_start_failure(result: str) -> None:
                 "Otherwise identify and stop the old sidecar service manually; "
                 "a missing pidfile does not prove launchd ownership. "
                 "Then rerun the official installer: "
-                f"{OFFICIAL_INSTALLER_COMMAND}",
+                f"{LOCAL_INSTALL_GUIDANCE}",
                 file=sys.stderr,
             )
         else:
             print(
                 "next: stop the old sidecar service manually, then rerun the "
-                f"official installer: {OFFICIAL_INSTALLER_COMMAND}",
+                f"official installer: {LOCAL_INSTALL_GUIDANCE}",
                 file=sys.stderr,
             )
         return
@@ -2928,7 +2758,7 @@ def _run_start(args: argparse.Namespace) -> int:
         except (OSError, RuntimeError, ValueError):
             print(
                 "error: Explicit Hermes root could not be verified. Rerun the "
-                f"official installer: {OFFICIAL_INSTALLER_COMMAND}",
+                f"official installer: {LOCAL_INSTALL_GUIDANCE}",
                 file=sys.stderr,
             )
             return 1
@@ -2938,7 +2768,7 @@ def _run_start(args: argparse.Namespace) -> int:
         except (OSError, RuntimeError, ValueError):
             print(
                 "error: Explicit Hermes root could not be verified. Rerun the "
-                f"official installer: {OFFICIAL_INSTALLER_COMMAND}",
+                f"official installer: {LOCAL_INSTALL_GUIDANCE}",
                 file=sys.stderr,
             )
             return 1

@@ -2469,14 +2469,6 @@ def test_cached_agent_binding_rejects_other_scope_and_missing_new_turn():
     assert hook_runtime.redirect_turn_id_for_agent(agent, source) == ""
 
 
-def test_hfc_command_patch_enforces_maintenance_admission_before_commands():
-    block = "".join(patcher._render_hfc_command_hook_block("    ", "\n"))
-
-    admission = block.index("maintenance_admission_from_hermes_locals")
-    command = block.index("handle_hfc_command_from_hermes_locals")
-    assert admission < command
-    assert "if await _hfc_enforce_maintenance_admission(locals()):" in block
-    ast.parse("async def patched(self, event):\n" + block)
 
 
 def test_queued_final_completion_is_once_for_deepest_turn(monkeypatch):

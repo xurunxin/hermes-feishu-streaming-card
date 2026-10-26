@@ -8,6 +8,8 @@ import secrets
 import shutil
 import stat
 import subprocess
+import csv
+import io
 import sys
 import tempfile
 import time
@@ -1274,17 +1276,36 @@ def stop_pid(pid: int) -> None:
 
 
 def _pid_is_running_windows(pid: int) -> bool:
-    try:
-        import ctypes
+    """Inspect the task list without sending a process-control signal.
 
-        kernel32 = ctypes.windll.kernel32
-        process_handle = kernel32.OpenProcess(0x1000, False, pid)
-        if process_handle:
-            kernel32.CloseHandle(process_handle)
+    An unavailable or unparseable task list is treated as still running, so
+    an uncertain PID cannot authorize cleanup or a duplicate start.
+    """
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return False
+    windows_root = os.environ.get("SYSTEMROOT") or os.environ.get("WINDIR")
+    if not windows_root:
+        return True
+    executable = Path(windows_root) / "System32" / "tasklist.exe"
+    try:
+        result = subprocess.run(
+            [str(executable), "/FO", "CSV", "/NH"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="mbcs",
+            errors="replace",
+            timeout=5,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if result.returncode != 0:
             return True
-        return False
-    except Exception:
-        return False
+        rows = csv.reader(io.StringIO(result.stdout))
+        pids = {int(row[1].strip()) for row in rows if len(row) >= 2 and row[1].strip().isdigit()}
+        return pid in pids if pids else True
+    except (OSError, subprocess.SubprocessError, UnicodeError, csv.Error, TypeError, ValueError):
+        return True
 
 
 def _stop_pid_windows(pid: int) -> None:

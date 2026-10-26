@@ -85,7 +85,9 @@ def _require_secure_dirfd_transactions() -> None:
 
 
 def _portable_restore_supported() -> bool:
-    return os.name == "nt"
+    # Secure Windows evidence deletion requires the native-handle code
+    # intentionally excluded from this safe fork. Refuse before mutation.
+    return False
 
 
 

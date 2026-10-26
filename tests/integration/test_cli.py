@@ -59,139 +59,10 @@ def test_status_reports_process_state(tmp_path, monkeypatch, capsys):
     assert "running" in captured.out.lower() or "stopped" in captured.out.lower()
 
 
-def test_maintenance_provision_stages_exact_wheel_and_runtime(
-    monkeypatch, tmp_path, capsys
-):
-    staged = SimpleNamespace(version=PACKAGE_VERSION, sha256="a" * 64)
-    runtime = SimpleNamespace(
-        available=True,
-        reason_code="ready",
-        python_path=tmp_path / "maintenance-python",
-        package_version=PACKAGE_VERSION,
-    )
-    calls = []
-    monkeypatch.setattr(cli_module, "maintenance_paths", lambda root=None: "paths")
-    monkeypatch.setattr(
-        cli_module,
-        "stage_wheel_artifact",
-        lambda paths, wheel, expected_version, source_kind: calls.append(
-            (paths, wheel, expected_version, source_kind)
-        )
-        or staged,
-    )
-    monkeypatch.setattr(
-        cli_module,
-        "provision_runtime",
-        lambda paths, artifact, hermes_root: runtime,
-    )
-
-    code = main(
-        [
-            "maintenance",
-            "provision",
-            "--hermes-dir",
-            str(tmp_path / "hermes"),
-            "--wheel",
-            str(tmp_path / "hfc.whl"),
-        ]
-    )
-
-    output = capsys.readouterr().out
-    assert code == 0
-    assert calls[0][2] == PACKAGE_VERSION
-    assert "maintenance: ready" in output
 
 
-def test_maintenance_status_reports_unavailable_without_mutating(
-    monkeypatch, tmp_path, capsys
-):
-    monkeypatch.setattr(cli_module, "maintenance_paths", lambda root=None: "paths")
-    monkeypatch.setattr(
-        cli_module,
-        "load_verified_artifact",
-        lambda paths, expected_version: SimpleNamespace(version=PACKAGE_VERSION),
-    )
-    monkeypatch.setattr(
-        cli_module,
-        "inspect_runtime",
-        lambda paths, artifact, hermes_root: SimpleNamespace(
-            available=False,
-            reason_code="runtime_python_missing",
-            python_path=tmp_path / "missing",
-            package_version="",
-        ),
-    )
-
-    code = main(
-        [
-            "maintenance",
-            "status",
-            "--hermes-dir",
-            str(tmp_path / "hermes"),
-        ]
-    )
-
-    captured = capsys.readouterr()
-    assert code == 1
-    assert "runtime_python_missing" in captured.out
 
 
-def test_maintenance_resume_launches_real_independent_runner(
-    monkeypatch, tmp_path, capsys
-):
-    from hermes_feishu_card.maintenance_store import JOB_ENVIRONMENT_KEYS
-    for key in JOB_ENVIRONMENT_KEYS:
-        monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
-    job_path = tmp_path / "maintenance" / "jobs" / "job-1.json"
-    job = SimpleNamespace(
-        job_id="job-1",
-        path=job_path,
-        artifact_version=PACKAGE_VERSION,
-        hermes_root=tmp_path / "hermes",
-    )
-    artifact = SimpleNamespace(version=PACKAGE_VERSION)
-    runtime = SimpleNamespace(available=True, reason_code="ready")
-    launch = SimpleNamespace(
-        started=True,
-        reason_code="started",
-        manager="systemd-user",
-    )
-    calls = []
-    monkeypatch.setattr(
-        cli_module, "stage_job_credentials",
-        lambda paths, *, job_id, environment:
-            calls.append(("credentials", paths, job_id, environment)),
-    )
-    monkeypatch.setattr(cli_module, "load_job", lambda path: job)
-    monkeypatch.setattr(
-        cli_module,
-        "maintenance_paths",
-        lambda root=None: calls.append(("paths", root)) or "paths",
-    )
-    monkeypatch.setattr(
-        cli_module,
-        "load_verified_artifact",
-        lambda paths, expected_version: artifact,
-    )
-    monkeypatch.setattr(
-        cli_module,
-        "inspect_runtime",
-        lambda paths, current, hermes_root: runtime,
-    )
-    monkeypatch.setattr(
-        cli_module,
-        "launch_job",
-        lambda status, current: calls.append(("launch", status, current)) or launch,
-    )
-
-    code = main(["maintenance", "resume", "--job", str(job_path)])
-
-    assert code == 0
-    assert calls[0] == ("paths", job_path.parent.parent)
-    assert calls[1] == ("credentials", "paths", "job-1", {"NO_PROXY": "127.0.0.1,localhost"})
-    assert calls[-1] == ("launch", runtime, job)
-    assert "maintenance: started" in capsys.readouterr().out
 
 
 def test_status_reports_runtime_readiness_and_fails_when_degraded(
@@ -721,7 +592,8 @@ def test_start_refuses_unverified_runtime_and_prints_official_installer_only(
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "official installer" in captured.err.lower()
-    assert "https://raw.githubusercontent.com/baileyh8/hermes-feishu-streaming-card/main/install.sh" in captured.err
+    assert cli_module.LOCAL_INSTALL_GUIDANCE in captured.err
+    assert "curl" not in captured.err.lower()
     assert str(hermes_root) not in captured.out + captured.err
 
 

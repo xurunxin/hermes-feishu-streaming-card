@@ -52,8 +52,8 @@ def test_current_markers_and_v437_delivery_filter_release_contract():
     todo = read_doc("TODO.md")
     maintenance = read_doc("docs/wiki/maintenance-guide.md")
 
-    assert 'version = "5.0.9"' in pyproject
-    assert '__version__ = "5.0.9"' in package
+    assert 'version = "5.0.9+safe.1"' in pyproject
+    assert '__version__ = "5.0.9+safe.1"' in package
     assert config.startswith("# Hermes Feishu Streaming Card V5.0.9")
     assert 'HFC_VERSION: "${HFC_VERSION:-v5.0.9}"' in compose
     assert "HFC_VERSION: v5.0.9" in workflow

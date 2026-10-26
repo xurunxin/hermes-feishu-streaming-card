@@ -94,36 +94,6 @@ def test_portable_write_and_rollback_preserve_crlf_ctrl_z_and_io_failure(tmp_pat
     assert target.read_bytes() == "new\r\n中文\r\n".encode()
 
 
-def test_portable_evidence_success_deletes_verified_family_on_windows(tmp_path):
-    root = tmp_path / "hermes with spaces"
-    root.mkdir()
-    first = root / "run.py.hermes_feishu_card.bak"
-    second = root / "manifest with 用户.json"
-    first.write_bytes(b"backup\r\n")
-    second.write_bytes(b'{"ok": true}\r\n')
-    identities, directories = portable._snapshot_restore_evidence(
-        root, {"backup": first, "manifest": second}
-    )
-    portable._remove_targets_portably(
-        [first, second],
-        expected_identities=identities,
-        expected_directories=directories,
-    )
-    assert not first.exists() and not second.exists()
-
-    changed = root / "changed.bak"
-    changed.write_bytes(b"expected\r\n")
-    identities, directories = portable._snapshot_restore_evidence(
-        root, {"changed": changed}
-    )
-    changed.write_bytes(b"concurrent edit\r\n")
-    with pytest.raises(ValueError, match="changed"):
-        portable._remove_targets_portably(
-            [changed],
-            expected_identities=identities,
-            expected_directories=directories,
-        )
-    assert changed.read_bytes() == b"concurrent edit\r\n"
 
 
 def _portable_evidence_family(tmp_path):
@@ -142,57 +112,8 @@ def _portable_evidence_family(tmp_path):
     return list(values), values, identities, directories
 
 
-def test_portable_evidence_last_mark_failure_preserves_every_file(tmp_path, monkeypatch):
-    paths, values, identities, directories = _portable_evidence_family(tmp_path)
-    original = portable._set_portable_delete
-    marks = 0
-
-    def fail_last_mark(fd, enabled):
-        nonlocal marks
-        if enabled:
-            marks += 1
-            if marks == len(paths):
-                raise OSError("injected last mark failure")
-        return original(fd, enabled)
-
-    monkeypatch.setattr(portable, "_set_portable_delete", fail_last_mark)
-    with pytest.raises(OSError, match="last mark failure"):
-        portable._remove_targets_portably(
-            paths,
-            expected_identities=identities,
-            expected_directories=directories,
-            recovery_contents=values,
-        )
-    assert {path: path.read_bytes() for path in paths} == {
-        path: value.encode("utf-8") for path, value in values.items()
-    }
 
 
-def test_portable_evidence_last_close_failure_restores_partial_deletions(tmp_path, monkeypatch):
-    paths, values, identities, directories = _portable_evidence_family(tmp_path)
-    original_close = portable.os.close
-    closes = 0
-    failed = False
-
-    def fail_last_close(fd):
-        nonlocal closes, failed
-        closes += 1
-        if closes == len(paths) and not failed:
-            failed = True
-            raise OSError("injected last close failure")
-        return original_close(fd)
-
-    monkeypatch.setattr(portable.os, "close", fail_last_close)
-    with pytest.raises(ValueError, match="original evidence restored"):
-        portable._remove_targets_portably(
-            paths,
-            expected_identities=identities,
-            expected_directories=directories,
-            recovery_contents=values,
-        )
-    assert {path: path.read_bytes() for path in paths} == {
-        path: value.encode("utf-8") for path, value in values.items()
-    }
 
 
 def test_portable_transaction_refuses_a_junction(tmp_path):

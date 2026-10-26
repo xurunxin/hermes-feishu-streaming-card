@@ -116,7 +116,7 @@ class CardKitTransport:
         self.client = client
         self.entities: dict[str, Entity] = {}
         self.deliveries: dict[str, Entity] = {}
-        # FeishuClient is also constructed by synchronous CLI/maintenance code.
+        # FeishuClient is also constructed by synchronous CLI/manual servicing code.
         # Python 3.9 binds Lock eagerly, so create it only on first async send.
         self.creation_lock: asyncio.Lock | None = None
 

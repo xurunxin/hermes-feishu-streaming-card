@@ -48,6 +48,8 @@
       "tests/unit/test_admission_completion_detection.py",
       "tests/unit/test_pm_wheel_store.py",
       "tests/unit/test_windows_native_io.py",
+      "tests/unit/test_child_environment.py",
+      "tests/unit/test_safe_recovery.py",
       "tests/unit/test_legacy_rebind.py",
       "tests/integration/test_legacy_observer_install.py",
       "tests/integration/test_pm_rebind.py",
@@ -64,7 +66,9 @@
       "tests/unit/test_lifecycle.py",
       "tests/unit/test_sidecar_runtime_selection.py",
       "tests/unit/test_control_token_file.py",
-      "tests/unit/test_python_identity.py"
+      "tests/unit/test_python_identity.py",
+      "tests/unit/test_safe_fork_policy.py",
+      "tests/unit/test_safe_process.py"
     ],
     "docs": [
       "tests/unit/test_docs.py",
@@ -161,13 +165,7 @@
     ],
     "operations": [
       "tests/unit/test_operations.py",
-      "tests/unit/test_operations_transport.py",
-      "tests/unit/test_maintenance_update.py",
-      "tests/unit/test_maintenance_store.py",
-      "tests/unit/test_maintenance_card.py",
-      "tests/unit/test_maintenance_process.py",
-      "tests/integration/test_maintenance_runner.py",
-      "tests/unit/test_maintenance_evidence.py"
+      "tests/unit/test_operations_transport.py"
     ],
     "plugin": [
       "tests/unit/test_hermes_plugin.py",

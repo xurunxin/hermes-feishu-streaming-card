@@ -76,7 +76,18 @@ def test_runtime_feishu_sdk_probe_allows_windows_cold_start(monkeypatch):
     report = cli._check_runtime_feishu_sdk(Path(sys.executable))
 
     assert report["status"] == "ok"
-    assert observed["timeout"] == 30
+    assert observed["timeout"] == 120
+
+
+def test_runtime_feishu_sdk_probe_remains_bounded_and_fails_closed(monkeypatch):
+    def timed_out(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+    monkeypatch.setattr(cli.subprocess, "run", timed_out)
+    report = cli._check_runtime_feishu_sdk(Path(sys.executable))
+    assert report["status"] == "failed"
+    assert report["supports_extra_ua_tags"] is False
+    assert "timed out" in report["message"]
 
 
 def test_candidate_hermes_config_paths_include_hermes_home_parent(tmp_path):
@@ -578,32 +589,22 @@ def test_portable_existing_write_restores_original_after_mid_write_failure(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows sharing semantics")
-def test_portable_windows_exclusive_handle_blocks_concurrent_writer(
+def test_portable_windows_writer_refuses_concurrent_edit_before_write(
     tmp_path, monkeypatch
 ):
     target = tmp_path / "config.yaml"
     target.write_text("before\n", encoding="utf-8")
     original_open = file_transaction._open_portable_exclusive_fd
-    competing_write_blocked = False
-
     def open_and_probe(path, *, create):
-        nonlocal competing_write_blocked
         fd = original_open(path, create=create)
-        try:
-            path.write_text("CONCURRENT_EDIT\n", encoding="utf-8")
-        except OSError:
-            competing_write_blocked = True
-        else:
-            os.close(fd)
-            pytest.fail("Windows exclusive handle allowed a competing writer")
+        path.write_text("CONCURRENT_EDIT\n", encoding="utf-8")
         return fd
 
     monkeypatch.setattr(file_transaction, "_open_portable_exclusive_fd", open_and_probe)
 
-    file_transaction._atomic_write_text_portable(target, "after\n")
-
-    assert competing_write_blocked
-    assert target.read_text(encoding="utf-8") == "after\n"
+    with pytest.raises(ValueError, match="changed target"):
+        file_transaction._atomic_write_text_portable(target, "after\n")
+    assert target.read_text(encoding="utf-8") == "CONCURRENT_EDIT\n"
 
 
 def test_restore_transaction_fails_closed_without_dirfd_support(

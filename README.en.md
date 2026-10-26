@@ -1,5 +1,7 @@
 # Hermes Feishu Streaming Card Plugin
 
+> **Safe fork:** This branch is based on upstream 5.0.9 and identifies itself as `5.0.9+safe.1`. Private-chat remote updates and related maintenance features are removed. Install from this fork's `main` or `safe-v4.2.5` branch; upstream release packages and commands below do not include these changes. See [SAFE-FORK.md](SAFE-FORK.md) for the Windows legacy-recovery limitation.
+
 [中文](README.md) | [English](README.en.md)
 <p align="center">
   <a href="https://github.com/baileyh8/hermes-feishu-streaming-card/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/baileyh8/hermes-feishu-streaming-card?style=for-the-badge&logo=github&label=Stars&color=2f80ed"></a>

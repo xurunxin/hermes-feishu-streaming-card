@@ -44,6 +44,23 @@ def sources(root):
             if (root / name).exists()}
 
 
+def _restore_or_assert_safe_refusal(detection):
+    if recovery._secure_dirfd_transactions_supported():
+        decomposed.restore(detection)
+        return True
+    root = detection.root
+    installed = sources(root)
+    evidence = {path: path.read_bytes() for path in root.rglob("*.hermes_feishu_card.bak")}
+    manifest = root / decomposed.MANIFEST_NAME
+    if manifest.exists():
+        evidence[manifest] = manifest.read_bytes()
+    with pytest.raises(ValueError, match="directory-relative"):
+        decomposed.restore(detection)
+    assert sources(root) == installed
+    assert {path: path.read_bytes() for path in evidence} == evidence
+    return False
+
+
 def test_decomposed_cli_install_doctor_repeat_remove_roundtrip(hermes, monkeypatch):
     # Runtime installation and SDK setup belong to deployment. This fixture
     # has no venv or adapter SDK; all patch/ownership/doctor calls remain real.
@@ -65,6 +82,13 @@ def test_decomposed_cli_install_doctor_repeat_remove_roundtrip(hermes, monkeypat
     assert "status_callback: found (gateway/run_turn_runner.py)" in cli._format_hermes_detection(detection)
     for name, raw in installed.items():
         compile(raw, name, "exec")
+    if not recovery._secure_dirfd_transactions_supported():
+        with pytest.raises(ValueError, match="directory-relative"):
+            recovery.restore_decomposed(detection)
+        assert installed == sources(hermes)
+        assert list(hermes.rglob("*.hermes_feishu_card.bak"))
+        assert (hermes / decomposed.MANIFEST_NAME).exists()
+        return
     assert cli.main(["uninstall", "--hermes-dir", str(hermes), "--yes"]) == 0
     assert sources(hermes) == before
     assert not list(hermes.rglob("*.hermes_feishu_card.bak"))
@@ -270,46 +294,6 @@ def test_portable_initial_write_failure_does_not_attempt_a_second_claim(hermes, 
     assert (hermes / ".hermes_feishu_card_manifest").is_file()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires native Windows handles")
-def test_windows_restore_partial_delete_failure_restores_installed_family(hermes, monkeypatch):
-    from hermes_feishu_card.install import file_transaction
-
-    detection = detect_hermes(hermes)
-    recovery.install_decomposed(detection)
-    installed = sources(hermes)
-    backups = {
-        path: path.read_bytes()
-        for path in hermes.rglob("*.hermes_feishu_card.bak")
-    }
-    manifest = (hermes / ".hermes_feishu_card_manifest").read_bytes()
-    original_open = file_transaction._open_portable_delete_fd
-    original_close = file_transaction.os.close
-    delete_fds = []
-    failed = False
-
-    def open_delete(path):
-        descriptor = original_open(path)
-        delete_fds.append(descriptor)
-        return descriptor
-
-    def fail_last_delete_close(descriptor):
-        nonlocal failed
-        if descriptor in delete_fds and descriptor == delete_fds[-1] and not failed:
-            failed = True
-            raise OSError("injected last evidence close failure")
-        return original_close(descriptor)
-
-    monkeypatch.setattr(file_transaction, "_open_portable_delete_fd", open_delete)
-    monkeypatch.setattr(file_transaction.os, "close", fail_last_delete_close)
-
-    with pytest.raises(ValueError, match="original evidence restored"):
-        recovery.restore_decomposed(detect_hermes(hermes))
-
-    assert failed
-    assert sources(hermes) == installed
-    assert {path: path.read_bytes() for path in backups} == backups
-    assert (hermes / ".hermes_feishu_card_manifest").read_bytes() == manifest
-    assert recovery.plan_recovery(detect_hermes(hermes)).state == "installed"
 
 
 @pytest.mark.parametrize("target,old,new", [
@@ -355,7 +339,8 @@ def test_decomposed_accepts_record_delivery_kwarg_end_to_end(hermes):
     before = sources(hermes)
     decomposed.install(detection)
     assert sources(hermes) != before
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == before
 
 
@@ -367,7 +352,8 @@ def test_each_owned_file_is_required_for_restore(hermes, target):
     path.write_bytes(path.read_bytes() + b"\n# user edit\n")
     edited = sources(hermes)
     assert recovery.plan_recovery(detection).state == "refused"
-    with pytest.raises(ValueError, match="source drift"):
+    reason = "source drift" if recovery._secure_dirfd_transactions_supported() else "directory-relative"
+    with pytest.raises(ValueError, match=reason):
         decomposed.restore(detection)
     assert sources(hermes) == edited
 
@@ -417,7 +403,8 @@ def test_manifest_path_escape_refused(hermes):
     manifest = json.loads(manifest_path.read_text())
     manifest["targets"]["gateway/run.py"]["backup"] = "../outside"
     manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match="ownership"):
+    reason = "ownership" if recovery._secure_dirfd_transactions_supported() else "directory-relative"
+    with pytest.raises(ValueError, match=reason):
         decomposed.restore(detection)
 
 
@@ -500,7 +487,8 @@ def test_cron_routing_uses_definition_not_facade_filename(hermes):
     decomposed.install(detection)
     assert patcher.CRON_PATCH_BEGIN in scheduler.read_text()
     assert delivery.read_bytes() == before["cron/scheduler_delivery.py"]
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == before
     scheduler.write_text("# facade without a delivery definition\n")
     assert not detect_hermes(hermes).supported
@@ -636,7 +624,8 @@ def test_byte_exact_reinstall_after_uninstall(hermes, newline):
         installed = sources(hermes)
         assert not decomposed.install(detect_hermes(hermes))
         assert sources(hermes) == installed
-        decomposed.restore(detect_hermes(hermes))
+        if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+            return
         assert sources(hermes) == before
 
 
@@ -789,7 +778,8 @@ def test_owned_restore_does_not_depend_on_current_renderer(hermes, monkeypatch):
     before = sources(hermes)
     decomposed.install(detect_hermes(hermes))
     monkeypatch.setattr(decomposed_ownership, "render", lambda *_a, **_kw: (_ for _ in ()).throw(ValueError("future renderer")))
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == before
 
 
@@ -814,7 +804,8 @@ def test_renderer_upgrade_refreshes_manifest_without_losing_originals(hermes):
     assert decomposed.install(detect_hermes(hermes))
     assert recovery.plan_recovery(detect_hermes(hermes)).state == "installed"
     assert not decomposed.install(detect_hermes(hermes))
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == before
 
 
@@ -850,7 +841,8 @@ def test_old_owned_template_is_detectable_and_repairable(hermes):
     assert detection.supported
     assert recovery.plan_recovery(detection).state == "owned_incomplete"
     assert decomposed.install(detection)
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == before
 
 
@@ -974,7 +966,8 @@ def test_inherited_persistence_install_restore(persistence_hermes):
     assert patcher.COMPLETE_PATCH_BEGIN.encode() in installed['gateway/run_turn_persistence.py']
     decomposed.install(detect_hermes(root))
     assert sources(root) == installed
-    decomposed.restore(detect_hermes(root))
+    if not _restore_or_assert_safe_refusal(detect_hermes(root)):
+        return
     assert sources(root) == before
 
 
@@ -1031,7 +1024,8 @@ def test_v4_owned_target_extension_requires_explicit_upgrade_and_restores(hermes
         decomposed.install(detect_hermes(hermes))
     decomposed.install(detect_hermes(hermes), accept_hermes_upgrade=True)
     assert recovery.plan_recovery(detect_hermes(hermes)).state == 'installed'
-    decomposed.restore(detect_hermes(hermes))
+    if not _restore_or_assert_safe_refusal(detect_hermes(hermes)):
+        return
     assert sources(hermes) == expected
 
 

@@ -529,7 +529,7 @@ def _run_official_enable(binding: HermesRuntimeBinding) -> int:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=30,
+            timeout=600 if os.name == "nt" else 30,
             env=isolated_child_env(
                 binding.hermes_home,
                 install_root=binding.checkout_root,

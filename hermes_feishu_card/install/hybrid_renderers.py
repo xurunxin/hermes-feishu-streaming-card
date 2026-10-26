@@ -570,9 +570,6 @@ def _render_hfc_command(content: bytes, descriptor: PatchGroupDescriptor) -> byt
         _indent(line),
         (
             "try:",
-            "    from hermes_feishu_card.hook_runtime import maintenance_admission_from_hermes_locals as _hfc_maintenance_admission",
-            "    if await _hfc_maintenance_admission(locals()):",
-            "        return None",
             "    from hermes_feishu_card.hook_runtime import handle_hfc_command_from_hermes_locals as _hfc_handle_command",
             "    _hfc_message_id = self._reply_anchor_for_event(event) or getattr(event, \"message_id\", None)",
             "    if _hfc_handle_command({**locals(), \"message_id\": _hfc_message_id}):",

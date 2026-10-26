@@ -89,12 +89,6 @@ def test_retired_gateway_cannot_take_ownership_back():
     assert not s.snapshot()['active_work_count_complete']
 
 
-def test_capacity_overflow_blocks_maintenance_without_unbounded_state():
-    s=supervisor();s.record(event())
-    for i in range(80):s.record(event('observer',f'observer-runtime-{i:04d}'))
-    assert len(s._owners.records)==64
-    assert s.snapshot()['owner_capacity_exceeded']
-    assert not s.snapshot()['active_work_count_complete']
 
 
 def test_emitter_reports_role_transition_and_authenticated_goodbye(monkeypatch, tmp_path):
@@ -137,26 +131,6 @@ def test_failed_owner_hello_is_retried_instead_of_becoming_heartbeat():
     assert [r['event'] for r in rows]==['runtime.hello','runtime.hello']
 
 
-def test_drain_requires_two_advancing_samples_from_same_gateway():
-    from hermes_feishu_card.maintenance_update import _wait_for_drain
-    clock = [0.0]
-    def sleep(seconds):
-        clock[0] += seconds
-    def health():
-        index = int(clock[0])
-        return dict(maintenance_active_sessions=0, gateway_active_sessions=0,
-            maintenance_drain=dict(active=True, valid=True),
-            readiness=dict(status='ready', runtime_id_hash=str(index % 2)*64,
-                last_sequence=index+1, last_seen_age_seconds=0,
-                admission_draining=True, active_work_count_complete=True,
-                drain_home_verified=True))
-    assert not _wait_for_drain(health, timeout_seconds=3, sleep=sleep, monotonic=lambda:clock[0])
-    clock[0] = 0
-    def stable():
-        result = health()
-        result['readiness']['runtime_id_hash'] = 'a'*64
-        return result
-    assert _wait_for_drain(stable, timeout_seconds=3, sleep=sleep, monotonic=lambda:clock[0])
 
 
 def test_malformed_owner_fields_raise_validation_error():
